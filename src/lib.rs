@@ -3,6 +3,7 @@
 
 //! Hardware dialects for [pliron].
 
+pub mod comb;
 pub mod hw;
 
 use pliron::context::Context;
@@ -10,4 +11,5 @@ use pliron::context::Context;
 /// Register all hardware dialects in the given [Context].
 pub fn register_all(ctx: &mut Context) {
     hw::register(ctx);
+    comb::register(ctx);
 }
