@@ -1,0 +1,20 @@
+[package]
+name = "pliron-hw"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/pliron-org/pliron-hw"
+categories = ["compilers"]
+keywords = ["pliron", "hardware", "circt", "compiler", "rtl"]
+
+[dependencies]
+pliron =  "0.17.0"
+thiserror = "2"
+log = { version = "0" }
+rustc-hash = "2"
+awint = "0"
+
+[dev-dependencies]
+expect-test = "1"
+env_logger = "0"
