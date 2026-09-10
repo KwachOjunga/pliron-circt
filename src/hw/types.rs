@@ -153,6 +153,16 @@ impl UnionType {
     pub fn num_fields(&self) -> usize {
         self.fields.len()
     }
+
+    /// Find field index by field name.
+    pub fn get_field_index(&self, name: &Identifier) -> Option<usize> {
+        self.fields.iter().position(|f| &f.name == name)
+    }
+
+    /// Find field type by field name.
+    pub fn get_field_type(&self, name: &Identifier) -> Option<TypeHandle> {
+        self.fields.iter().find(|f| &f.name == name).map(|f| f.ty)
+    }
 }
 
 /// Symbolic type alias referencing a `hw.typedecl`: `hw.typealias<@symbol, inner_type>`.

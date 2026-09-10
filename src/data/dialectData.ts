@@ -231,6 +231,18 @@ export const DIALECT_ITEMS: DialectItem[] = [
     agentsMdRef: '§25 Type Compatibility'
   },
 
+  {
+    id: 'op-array-inject',
+    name: 'ArrayInjectOp',
+    mlirSyntax: '%new_arr = hw.array_inject %arr[%idx], %val : !hw.array<4 x i8>',
+    plironRust: 'hw::ops::ArrayInjectOp::new(ctx, arr, idx, new_val, arr_ty)',
+    category: 'arrays',
+    description: 'Functional update of array element at index yielding a new array value.',
+    semanticContract: 'Creates updated array without in-place mutation; models non-destructive register or bus state update.',
+    status: 'parity_verified',
+    agentsMdRef: '§11 Functional State Updates'
+  },
+
   // Structs
   {
     id: 'op-struct-create',
@@ -275,6 +287,65 @@ export const DIALECT_ITEMS: DialectItem[] = [
     semanticContract: 'Inverse of struct_create; decomposes bundle into separate wires.',
     status: 'parity_verified',
     agentsMdRef: '§5 Flattening & Unpacking'
+  },
+
+  // Unions
+  {
+    id: 'op-union-create',
+    name: 'UnionCreateOp',
+    mlirSyntax: '%u = hw.union_create %val { union_tag = "byte_val" } : !hw.union<byte_val: i8, word_val: i32>',
+    plironRust: 'hw::ops::UnionCreateOp::new(ctx, val, field_name, union_ty)',
+    category: 'unions',
+    description: 'Constructs an active variant of a hardware union.',
+    semanticContract: 'Zero-extends or maps value into shared union bit storage tagged by variant name.',
+    status: 'parity_verified',
+    agentsMdRef: '§5 Types Are Semantic Contracts'
+  },
+  {
+    id: 'op-union-extract',
+    name: 'UnionExtractOp',
+    mlirSyntax: '%f = hw.union_extract %u { extract_tag = "byte_val" } : i8',
+    plironRust: 'hw::ops::UnionExtractOp::new(ctx, union_val, field_name, field_ty)',
+    category: 'unions',
+    description: 'Extracts a variant field from a hardware union.',
+    semanticContract: 'Reinterprets the union bit storage according to the specified active variant field type.',
+    status: 'parity_verified',
+    agentsMdRef: '§5 Value vs Storage'
+  },
+
+  // Parameters and Paths
+  {
+    id: 'op-param-decl',
+    name: 'ParamDeclOp',
+    mlirSyntax: 'hw.param_decl @WIDTH : i32 = 32',
+    plironRust: 'hw::ops::ParamDeclOp::new(ctx, name, param_type, default_val)',
+    category: 'parameters_and_paths',
+    description: 'Declares compile-time module parameter.',
+    semanticContract: 'Symbolic parameter specification evaluated during elaboration before lowering.',
+    status: 'parity_verified',
+    agentsMdRef: '§15 Parameterization'
+  },
+  {
+    id: 'op-param-value',
+    name: 'ParamValueOp',
+    mlirSyntax: '%w = hw.param_value @WIDTH : i32',
+    plironRust: 'hw::ops::ParamValueOp::new(ctx, param_ref, result_ty)',
+    category: 'parameters_and_paths',
+    description: 'References a parameter symbol as a compile-time value.',
+    semanticContract: 'Evaluates parameter symbol within the enclosing elaboration context.',
+    status: 'parity_verified',
+    agentsMdRef: '§15 Parameterization'
+  },
+  {
+    id: 'op-hierpath',
+    name: 'HierPathOp',
+    mlirSyntax: 'hw.hierpath @npath [@top, @cpu, @alu]',
+    plironRust: 'hw::ops::HierPathOp::new(ctx, name, path_string)',
+    category: 'parameters_and_paths',
+    description: 'Declares an explicit non-local hierarchical path across module instances.',
+    semanticContract: 'Encodes cross-hierarchy paths for physical constraints, probes, and timing directives.',
+    status: 'parity_verified',
+    agentsMdRef: '§14 Hierarchy & Instances'
   }
 ];
 

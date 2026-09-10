@@ -1,4 +1,4 @@
-export type DialectCategory = 'types' | 'module_hierarchy' | 'connectivity' | 'bits_and_constants' | 'arrays' | 'structs';
+export type DialectCategory = 'types' | 'module_hierarchy' | 'connectivity' | 'bits_and_constants' | 'arrays' | 'structs' | 'unions' | 'parameters_and_paths';
 
 export interface DialectItem {
   id: string;

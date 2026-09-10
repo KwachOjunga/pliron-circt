@@ -8,13 +8,15 @@ export const ParityMatrix: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const categories: { id: DialectCategory | 'all'; label: string; icon: any }[] = [
-    { id: 'all', label: 'All Constructs', icon: Layers },
-    { id: 'types', label: 'Types (7)', icon: Box },
-    { id: 'module_hierarchy', label: 'Hierarchy & Modules (4)', icon: Cpu },
-    { id: 'connectivity', label: 'Connectivity & Wires (2)', icon: Share2 },
-    { id: 'bits_and_constants', label: 'Bits & Slices (3)', icon: Binary },
-    { id: 'arrays', label: 'Arrays (4)', icon: Layers },
-    { id: 'structs', label: 'Structs & Aggregates (4)', icon: ShieldCheck }
+    { id: 'all', label: `All Constructs (${DIALECT_ITEMS.length})`, icon: Layers },
+    { id: 'types', label: `Types (${DIALECT_ITEMS.filter(i => i.category === 'types').length})`, icon: Box },
+    { id: 'module_hierarchy', label: `Hierarchy & Modules (${DIALECT_ITEMS.filter(i => i.category === 'module_hierarchy').length})`, icon: Cpu },
+    { id: 'connectivity', label: `Connectivity & Wires (${DIALECT_ITEMS.filter(i => i.category === 'connectivity').length})`, icon: Share2 },
+    { id: 'bits_and_constants', label: `Bits & Slices (${DIALECT_ITEMS.filter(i => i.category === 'bits_and_constants').length})`, icon: Binary },
+    { id: 'arrays', label: `Arrays (${DIALECT_ITEMS.filter(i => i.category === 'arrays').length})`, icon: Layers },
+    { id: 'structs', label: `Structs (${DIALECT_ITEMS.filter(i => i.category === 'structs').length})`, icon: ShieldCheck },
+    { id: 'unions', label: `Unions (${DIALECT_ITEMS.filter(i => i.category === 'unions').length})`, icon: ShieldCheck },
+    { id: 'parameters_and_paths', label: `Params & Paths (${DIALECT_ITEMS.filter(i => i.category === 'parameters_and_paths').length})`, icon: Cpu },
   ];
 
   const filtered = DIALECT_ITEMS.filter(item => {

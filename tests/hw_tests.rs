@@ -19,11 +19,14 @@ use pliron::{
 use pliron_hw::{
     hw::{
         ops::{
-            ArrayCreateOp, ArrayGetOp, BitcastOp, ConcatOp, ConstantOp, ExternModuleOp,
-            InstanceOp, ModuleOp, OutputOp, SliceOp, StructCreateOp, StructExplodeOp,
-            StructExtractOp, StructInjectOp, WireOp,
+            ArrayCreateOp, ArrayGetOp, ArrayInjectOp, BitcastOp, ConcatOp, ConstantOp,
+            ExternModuleOp, HierPathOp, InstanceOp, ModuleOp, OutputOp, ParamDeclOp,
+            ParamValueOp, SliceOp, StructCreateOp, StructExplodeOp, StructExtractOp,
+            StructInjectOp, UnionCreateOp, UnionExtractOp, WireOp,
         },
-        types::{ArrayType, InoutType, IntType, StructField, StructType, TypeAliasType},
+        types::{
+            ArrayType, InoutType, IntType, StructField, StructType, TypeAliasType, UnionType,
+        },
     },
     register_all,
 };
@@ -185,6 +188,14 @@ fn test_hw_array_operations() {
     assert_eq!(arr_get.result(&ctx).get_type(&ctx), i8);
 
     let g_res = arr_get.result(&ctx);
+
+    // Test ArrayInjectOp
+    let a_new_elem = int_attr(&mut ctx, 8, 99);
+    let new_elem = ConstantOp::new(&mut ctx, a_new_elem);
+    let new_elem_res = new_elem.result(&ctx);
+    let arr_inject = ArrayInjectOp::new(&mut ctx, arr_val, idx_val, new_elem_res, arr_ty);
+    assert_eq!(arr_inject.result(&ctx).get_type(&ctx), arr_ty);
+
     let out_op = OutputOp::new(&mut ctx, vec![g_res]);
 
     e0.get_operation().insert_at_back(body, &mut ctx);
@@ -194,6 +205,8 @@ fn test_hw_array_operations() {
     arr_create.get_operation().insert_at_back(body, &mut ctx);
     idx.get_operation().insert_at_back(body, &mut ctx);
     arr_get.get_operation().insert_at_back(body, &mut ctx);
+    new_elem.get_operation().insert_at_back(body, &mut ctx);
+    arr_inject.get_operation().insert_at_back(body, &mut ctx);
     out_op.get_operation().insert_at_back(body, &mut ctx);
 
     verify_op(&module, &ctx).expect("hw.module should verify");
@@ -299,4 +312,71 @@ fn test_hw_native_types() {
 
     let ir_alias = hw_alias.disp(&ctx).to_string();
     assert!(ir_alias.contains("hw.typealias") && ir_alias.contains("my_custom_bus"));
+}
+
+#[test]
+fn test_hw_union_operations() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+
+    let (module, body) = create_test_module(&mut ctx, "union_test");
+
+    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i32: TypeHandle = IntegerType::get(&mut ctx, 32, Signedness::Signless).into();
+
+    let f_byte: Identifier = "byte_val".try_into().unwrap();
+    let f_word: Identifier = "word_val".try_into().unwrap();
+
+    let union_ty: TypeHandle = UnionType::get(&mut ctx, vec![
+        StructField::new(f_byte.clone(), i8),
+        StructField::new(f_word.clone(), i32),
+    ]).into();
+
+    let b_attr = int_attr(&mut ctx, 8, 0x7F);
+    let b_const = ConstantOp::new(&mut ctx, b_attr);
+    let b_val = b_const.result(&ctx);
+
+    let union_create = UnionCreateOp::new(&mut ctx, b_val, "byte_val".to_string().into(), union_ty);
+    assert_eq!(union_create.result(&ctx).get_type(&ctx), union_ty);
+
+    let u_res = union_create.result(&ctx);
+    let union_extract = UnionExtractOp::new(&mut ctx, u_res, "byte_val".to_string().into(), i8);
+    assert_eq!(union_extract.result(&ctx).get_type(&ctx), i8);
+
+    let ext_res = union_extract.result(&ctx);
+    let out_op = OutputOp::new(&mut ctx, vec![ext_res]);
+
+    b_const.get_operation().insert_at_back(body, &mut ctx);
+    union_create.get_operation().insert_at_back(body, &mut ctx);
+    union_extract.get_operation().insert_at_back(body, &mut ctx);
+    out_op.get_operation().insert_at_back(body, &mut ctx);
+
+    verify_op(&module, &ctx).expect("hw.module with union ops should verify");
+}
+
+#[test]
+fn test_hw_parameters_and_hierpath() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+
+    let param_name: Identifier = "DATA_WIDTH".try_into().unwrap();
+    let param_decl = ParamDeclOp::new(
+        &mut ctx,
+        param_name,
+        "i32".to_string().into(),
+        "32".to_string().into(),
+    );
+    verify_op(&param_decl, &ctx).expect("hw.param_decl should verify");
+
+    let i32_ty: TypeHandle = IntegerType::get(&mut ctx, 32, Signedness::Signless).into();
+    let param_val = ParamValueOp::new(&mut ctx, "DATA_WIDTH".to_string().into(), i32_ty);
+    assert_eq!(param_val.result(&ctx).get_type(&ctx), i32_ty);
+
+    let path_name: Identifier = "npath_core_alu".try_into().unwrap();
+    let hier_path = HierPathOp::new(
+        &mut ctx,
+        path_name,
+        "top.cpu_tile.core.alu".to_string().into(),
+    );
+    verify_op(&hier_path, &ctx).expect("hw.hierpath should verify");
 }

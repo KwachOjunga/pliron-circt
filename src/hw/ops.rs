@@ -567,6 +567,41 @@ impl ArrayConcatOp {
     }
 }
 
+/// Array element injection operation: functionally updates an element at `index`.
+#[pliron_op(
+    name = "hw.array_inject",
+    format,
+    interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<3>],
+    verifier = "succ",
+)]
+pub struct ArrayInjectOp;
+
+impl ArrayInjectOp {
+    /// Create a new `hw.array_inject`.
+    pub fn new(
+        ctx: &mut Context,
+        array: Value,
+        index: Value,
+        new_val: Value,
+        array_type: TypeHandle,
+    ) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![array_type],
+            vec![array, index, new_val],
+            vec![],
+            0,
+        );
+        ArrayInjectOp { op }
+    }
+
+    /// Get updated array result.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
 /// Struct creation operation: packs fields into an `hw.struct`.
 #[pliron_op(
     name = "hw.struct_create",
@@ -725,6 +760,173 @@ impl TypeDeclOp {
     }
 }
 
+/// Union creation operation: creates an `hw.union` tagged variant value.
+#[pliron_op(
+    name = "hw.union_create",
+    format,
+    interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
+    attributes = (union_tag: StringAttr),
+    verifier = "succ",
+)]
+pub struct UnionCreateOp;
+
+impl UnionCreateOp {
+    /// Create a new `hw.union_create`.
+    pub fn new(
+        ctx: &mut Context,
+        val: Value,
+        field_name: StringAttr,
+        union_type: TypeHandle,
+    ) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![union_type],
+            vec![val],
+            vec![],
+            0,
+        );
+        let create = UnionCreateOp { op };
+        create.set_attr_union_tag(ctx, field_name);
+        create
+    }
+
+    /// Get union result.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
+/// Union field extraction operation: reads a variant from an `hw.union`.
+#[pliron_op(
+    name = "hw.union_extract",
+    format,
+    interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
+    attributes = (extract_tag: StringAttr),
+    verifier = "succ",
+)]
+pub struct UnionExtractOp;
+
+impl UnionExtractOp {
+    /// Create a new `hw.union_extract`.
+    pub fn new(
+        ctx: &mut Context,
+        union_val: Value,
+        field_name: StringAttr,
+        field_type: TypeHandle,
+    ) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![field_type],
+            vec![union_val],
+            vec![],
+            0,
+        );
+        let extract = UnionExtractOp { op };
+        extract.set_attr_extract_tag(ctx, field_name);
+        extract
+    }
+
+    /// Get extracted field result.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
+/// Hardware module parameter declaration symbol operation: `hw.param_decl`.
+#[pliron_op(
+    name = "hw.param_decl",
+    format,
+    interfaces = [
+        NRegionsInterface<0>,
+        SymbolOpInterface,
+        NOpdsInterface<0>,
+        NResultsInterface<0>,
+    ],
+    attributes = (param_type: StringAttr, default_val: StringAttr),
+    verifier = "succ",
+)]
+pub struct ParamDeclOp;
+
+impl ParamDeclOp {
+    /// Create a new `hw.param_decl`.
+    pub fn new(
+        ctx: &mut Context,
+        name: Identifier,
+        param_type: StringAttr,
+        default_val: StringAttr,
+    ) -> Self {
+        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![], vec![], vec![], 0);
+        let decl = ParamDeclOp { op };
+        decl.set_symbol_name(ctx, name);
+        decl.set_attr_param_type(ctx, param_type);
+        decl.set_attr_default_val(ctx, default_val);
+        decl
+    }
+}
+
+/// Hardware parameter value reference operation: `hw.param_value`.
+#[pliron_op(
+    name = "hw.param_value",
+    format,
+    interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<0>],
+    attributes = (param_ref: StringAttr),
+    verifier = "succ",
+)]
+pub struct ParamValueOp;
+
+impl ParamValueOp {
+    /// Create a new `hw.param_value`.
+    pub fn new(ctx: &mut Context, param_ref: StringAttr, result_type: TypeHandle) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![result_type],
+            vec![],
+            vec![],
+            0,
+        );
+        let val_op = ParamValueOp { op };
+        val_op.set_attr_param_ref(ctx, param_ref);
+        val_op
+    }
+
+    /// Get parameter value result.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
+/// Hardware hierarchical path symbol declaration: `hw.hierpath`.
+///
+/// Encodes a sequence of instance/module references designating an element deep
+/// within the module instance hierarchy.
+#[pliron_op(
+    name = "hw.hierpath",
+    format,
+    interfaces = [
+        NRegionsInterface<0>,
+        SymbolOpInterface,
+        NOpdsInterface<0>,
+        NResultsInterface<0>,
+    ],
+    attributes = (path_string: StringAttr),
+    verifier = "succ",
+)]
+pub struct HierPathOp;
+
+impl HierPathOp {
+    /// Create a new `hw.hierpath`.
+    pub fn new(ctx: &mut Context, name: Identifier, path: StringAttr) -> Self {
+        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![], vec![], vec![], 0);
+        let hp = HierPathOp { op };
+        hp.set_symbol_name(ctx, name);
+        hp.set_attr_path_string(ctx, path);
+        hp
+    }
+}
+
 /// Register all operations in the `hw` dialect.
 pub fn register(ctx: &mut Context) {
     ModuleOp::register(ctx);
@@ -740,9 +942,15 @@ pub fn register(ctx: &mut Context) {
     ArrayGetOp::register(ctx);
     ArraySliceOp::register(ctx);
     ArrayConcatOp::register(ctx);
+    ArrayInjectOp::register(ctx);
     StructCreateOp::register(ctx);
     StructExtractOp::register(ctx);
     StructInjectOp::register(ctx);
     StructExplodeOp::register(ctx);
     TypeDeclOp::register(ctx);
+    UnionCreateOp::register(ctx);
+    UnionExtractOp::register(ctx);
+    ParamDeclOp::register(ctx);
+    ParamValueOp::register(ctx);
+    HierPathOp::register(ctx);
 }
