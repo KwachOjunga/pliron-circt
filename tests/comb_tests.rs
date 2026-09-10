@@ -6,7 +6,6 @@ use pliron::{
     basic_block::BasicBlock,
     builtin::{
         attributes::IntegerAttr,
-        op_interfaces::OneRegionInterface,
         types::{IntegerType, Signedness},
     },
     context::{Context, Ptr},
@@ -86,7 +85,8 @@ fn test_comb_arithmetic_ops() {
     assert_eq!(shrs.result(&ctx).get_type(&ctx), i32_ty);
     shrs.get_operation().insert_at_back(body, &mut ctx);
 
-    let out = OutputOp::new(&mut ctx, vec![add.result(&ctx)]);
+    let add_res = add.result(&ctx);
+    let out = OutputOp::new(&mut ctx, vec![add_res]);
     out.get_operation().insert_at_back(body, &mut ctx);
 
     verify_op(&module, &ctx).expect("comb arithmetic in module should verify");
@@ -142,7 +142,8 @@ fn test_comb_logical_and_selection_ops() {
     assert_eq!(mux_op.result(&ctx).get_type(&ctx), i8_ty);
     mux_op.get_operation().insert_at_back(body, &mut ctx);
 
-    let out = OutputOp::new(&mut ctx, vec![mux_op.result(&ctx)]);
+    let mux_op_res = mux_op.result(&ctx);
+    let out = OutputOp::new(&mut ctx, vec![mux_op_res]);
     out.get_operation().insert_at_back(body, &mut ctx);
 
     verify_op(&module, &ctx).expect("comb logical and selection in module should verify");
@@ -188,7 +189,8 @@ fn test_comb_bit_manipulations() {
     assert_eq!(parity.result(&ctx).get_type(&ctx), i1_ty);
     parity.get_operation().insert_at_back(body, &mut ctx);
 
-    let out = OutputOp::new(&mut ctx, vec![concat.result(&ctx)]);
+    let concat_res = concat.result(&ctx);
+    let out = OutputOp::new(&mut ctx, vec![concat_res]);
     out.get_operation().insert_at_back(body, &mut ctx);
 
     verify_op(&module, &ctx).expect("comb bit manipulations in module should verify");
