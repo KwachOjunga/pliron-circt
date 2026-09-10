@@ -9,7 +9,7 @@ use pliron::{
     builtin::{
         attributes::{IdentifierAttr, IntegerAttr, StringAttr},
         op_interfaces::{
-            self, ATTR_KEY_SYM_NAME, IsTerminatorInterface, IsolatedFromAboveInterface,
+            self, IsTerminatorInterface, IsolatedFromAboveInterface,
             NOpdsInterface, NRegionsInterface, NResultsInterface, OneRegionInterface,
             OneResultInterface, RegionKind, RegionKindInterface, SingleBlockRegionInterface,
             SymbolOpInterface,
@@ -24,12 +24,12 @@ use pliron::{
         parsers::spaced,
         printers::op::{region, symb_op_header},
     },
-    location::Location,
+    location::{Located, Location},
     op::{Op, OpObj},
     operation::Operation,
-    parsable::{IntoParseResult, Parsable, ParseResult, StateStream},
+    parsable::{Parsable, ParseResult, StateStream},
     printable::{self, Printable},
-    r#type::TypeHandle,
+    r#type::{TypeHandle, Typed},
     value::Value,
 };
 
@@ -83,6 +83,7 @@ impl ModuleOp {
     pub fn get_body(&self, ctx: &Context) -> Ptr<BasicBlock> {
         self.get_region(ctx)
             .deref(ctx)
+            .get_entry_block()
             .expect("hw.module has a body block")
     }
 
@@ -254,12 +255,12 @@ impl InstanceOp {
 
     /// Get instance name attribute.
     pub fn instance_name(&self, ctx: &Context) -> StringAttr {
-        self.get_attr_instance_name(ctx)
+        self.get_attr_instance_name(ctx).unwrap().clone()
     }
 
     /// Get instantiated module name attribute.
     pub fn module_name(&self, ctx: &Context) -> IdentifierAttr {
-        self.get_attr_module_name(ctx)
+        self.get_attr_module_name(ctx).unwrap().clone()
     }
 
     /// Get output results of the instance.
@@ -271,7 +272,7 @@ impl InstanceOp {
 
 /// External hardware module declaration operation (ASIC macro, PLL, standard cell, IP blackbox).
 #[pliron_op(
-    name = "hw.module.extern",
+    name = "hw.module_extern",
     format,
     interfaces = [
         NRegionsInterface<0>,
@@ -326,7 +327,7 @@ impl WireOp {
 
     /// Get the net name attribute.
     pub fn name(&self, ctx: &Context) -> StringAttr {
-        self.get_attr_name(ctx)
+        self.get_attr_name(ctx).unwrap().clone()
     }
 
     /// Get the input value driving this wire.
@@ -436,7 +437,7 @@ impl SliceOp {
 
     /// Get the starting bit index attribute.
     pub fn low_bit(&self, ctx: &Context) -> IntegerAttr {
-        self.get_attr_low_bit(ctx)
+        self.get_attr_low_bit(ctx).unwrap().clone()
     }
 
     /// Get the extracted slice result.
@@ -637,7 +638,7 @@ impl StructExtractOp {
     name = "hw.struct_inject",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<2>],
-    attributes = (field_name: StringAttr),
+    attributes = (target_field: StringAttr),
     verifier = "succ",
 )]
 pub struct StructInjectOp;
@@ -660,7 +661,7 @@ impl StructInjectOp {
             0,
         );
         let inject = StructInjectOp { op };
-        inject.set_attr_field_name(ctx, field_name);
+        inject.set_attr_target_field(ctx, field_name);
         inject
     }
 

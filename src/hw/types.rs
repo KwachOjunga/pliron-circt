@@ -14,9 +14,9 @@
 
 use pliron::{
     context::Context,
-    derive::pliron_type,
+    derive::{format, pliron_type},
     identifier::Identifier,
-    r#type::{Type, TypeHandle, TypedHandle},
+    r#type::{Type, TypeHandle},
 };
 
 /// Arbitrary-width bitvector hardware wire / bus type: `hw.int<width>`.
@@ -82,20 +82,36 @@ impl ArrayType {
     }
 }
 
+/// A named hardware field and its type: `name : type`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[format("$name `:` $ty")]
+pub struct StructField {
+    pub name: Identifier,
+    pub ty: TypeHandle,
+}
+
+impl StructField {
+    /// Create a new struct/union field.
+    pub fn new(name: Identifier, ty: TypeHandle) -> Self {
+        Self { name, ty }
+    }
+}
+
 /// Hardware struct / record type: `hw.struct<fieldName: FieldType, ...>`.
 #[pliron_type(
     name = "hw.struct",
+    format = "`<` vec($fields, CharSpace(`,`)) `>`",
     verifier = "succ",
     generate_get = true
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StructType {
-    fields: Vec<(Identifier, TypeHandle)>,
+    fields: Vec<StructField>,
 }
 
 impl StructType {
     /// Get reference to all named fields and their types.
-    pub fn fields(&self) -> &[(Identifier, TypeHandle)] {
+    pub fn fields(&self) -> &[StructField] {
         &self.fields
     }
 
@@ -106,29 +122,30 @@ impl StructType {
 
     /// Find field index by field name.
     pub fn get_field_index(&self, name: &Identifier) -> Option<usize> {
-        self.fields.iter().position(|(n, _)| n == name)
+        self.fields.iter().position(|f| &f.name == name)
     }
 
     /// Find field type by field name.
     pub fn get_field_type(&self, name: &Identifier) -> Option<TypeHandle> {
-        self.fields.iter().find(|(n, _)| n == name).map(|(_, ty)| *ty)
+        self.fields.iter().find(|f| &f.name == name).map(|f| f.ty)
     }
 }
 
 /// Hardware union type: `hw.union<fieldName: FieldType, ...>`.
 #[pliron_type(
     name = "hw.union",
+    format = "`<` vec($fields, CharSpace(`,`)) `>`",
     verifier = "succ",
     generate_get = true
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnionType {
-    fields: Vec<(Identifier, TypeHandle)>,
+    fields: Vec<StructField>,
 }
 
 impl UnionType {
     /// Get reference to all union variant fields.
-    pub fn fields(&self) -> &[(Identifier, TypeHandle)] {
+    pub fn fields(&self) -> &[StructField] {
         &self.fields
     }
 
@@ -141,6 +158,7 @@ impl UnionType {
 /// Symbolic type alias referencing a `hw.typedecl`: `hw.typealias<@symbol, inner_type>`.
 #[pliron_type(
     name = "hw.typealias",
+    format = "`<` $symbol `,` $inner_type `>`",
     verifier = "succ",
     generate_get = true
 )]
@@ -165,23 +183,24 @@ impl TypeAliasType {
 /// First-class hardware module interface signature type: `hw.module_type<in (...), out (...)>`.
 #[pliron_type(
     name = "hw.module_type",
+    format = "`<` `in` `(` vec($inputs, CharSpace(`,`)) `)` `,` `out` `(` vec($outputs, CharSpace(`,`)) `)` `>`",
     verifier = "succ",
     generate_get = true
 )]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ModuleType {
-    inputs: Vec<(Identifier, TypeHandle)>,
-    outputs: Vec<(Identifier, TypeHandle)>,
+    inputs: Vec<StructField>,
+    outputs: Vec<StructField>,
 }
 
 impl ModuleType {
     /// List of input port identifiers and types.
-    pub fn inputs(&self) -> &[(Identifier, TypeHandle)] {
+    pub fn inputs(&self) -> &[StructField] {
         &self.inputs
     }
 
     /// List of output port identifiers and types.
-    pub fn outputs(&self) -> &[(Identifier, TypeHandle)] {
+    pub fn outputs(&self) -> &[StructField] {
         &self.outputs
     }
 
