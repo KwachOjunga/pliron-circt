@@ -1,0 +1,8 @@
+{
+  "name": "pliron-hw Dialect Explorer",
+  "description": "Interactive hardware dialect compiler, verifier, and netlist visualizer for pliron-hw (CIRCT-inspired MLIR hardware IR).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
