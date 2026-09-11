@@ -20,9 +20,9 @@ use pliron_hw::{
     hw::{
         ops::{
             ArrayCreateOp, ArrayGetOp, ArrayInjectOp, BitcastOp, ConcatOp, ConstantOp,
-            ExternModuleOp, HierPathOp, InstanceOp, ModuleOp, OutputOp, ParamDeclOp,
-            ParamValueOp, SliceOp, StructCreateOp, StructExplodeOp, StructExtractOp,
-            StructInjectOp, UnionCreateOp, UnionExtractOp, WireOp,
+            ExternModuleOp, HierPathOp, InstanceOp, ModuleOp, OutputOp, ParamDeclOp, ParamValueOp,
+            SliceOp, StructCreateOp, StructExplodeOp, StructExtractOp, StructInjectOp,
+            UnionCreateOp, UnionExtractOp, WireOp,
         },
         types::{
             ArrayType, EnumType, EnumVariant, InoutType, IntType, StructField, StructType,
@@ -45,6 +45,7 @@ fn create_test_module(ctx: &mut Context, name: &str) -> (ModuleOp, Ptr<BasicBloc
 }
 
 #[test]
+// Proves modules create graph regions with typed input ports and valid output wiring.
 fn test_hw_module_creation_and_graph_region() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -84,6 +85,7 @@ fn test_hw_module_creation_and_graph_region() {
 }
 
 #[test]
+// Covers named wires and type-preserving bitcasts in a hardware module.
 fn test_hw_wire_and_bitcast() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -115,6 +117,7 @@ fn test_hw_wire_and_bitcast() {
 }
 
 #[test]
+// Covers width-preserving slice and multi-input concatenation operations.
 fn test_hw_concat_and_slice() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -152,6 +155,7 @@ fn test_hw_concat_and_slice() {
 }
 
 #[test]
+// Covers array construction, indexing, and element replacement operations.
 fn test_hw_array_operations() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -174,11 +178,7 @@ fn test_hw_array_operations() {
     let r1 = e1.result(&ctx);
     let r2 = e2.result(&ctx);
     let r3 = e3.result(&ctx);
-    let arr_create = ArrayCreateOp::new(
-        &mut ctx,
-        vec![r0, r1, r2, r3],
-        arr_ty,
-    );
+    let arr_create = ArrayCreateOp::new(&mut ctx, vec![r0, r1, r2, r3], arr_ty);
     assert_eq!(arr_create.result(&ctx).get_type(&ctx), arr_ty);
 
     let a_idx = int_attr(&mut ctx, 2, 2);
@@ -214,6 +214,7 @@ fn test_hw_array_operations() {
 }
 
 #[test]
+// Covers struct construction, field extraction, explosion, and injection.
 fn test_hw_struct_operations() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -226,10 +227,14 @@ fn test_hw_struct_operations() {
     let f_a: Identifier = "a".try_into().unwrap();
     let f_b: Identifier = "b".try_into().unwrap();
 
-    let struct_ty: TypeHandle = StructType::get(&mut ctx, vec![
-        StructField::new(f_a.clone(), i8),
-        StructField::new(f_b.clone(), i16),
-    ]).into();
+    let struct_ty: TypeHandle = StructType::get(
+        &mut ctx,
+        vec![
+            StructField::new(f_a.clone(), i8),
+            StructField::new(f_b.clone(), i16),
+        ],
+    )
+    .into();
 
     let a_val = int_attr(&mut ctx, 8, 1);
     let val_a = ConstantOp::new(&mut ctx, a_val);
@@ -249,7 +254,13 @@ fn test_hw_struct_operations() {
     let new_val_a = ConstantOp::new(&mut ctx, nva);
     let sc_res2 = struct_create.result(&ctx);
     let nva_res = new_val_a.result(&ctx);
-    let inject_a = StructInjectOp::new(&mut ctx, sc_res2, "a".to_string().into(), nva_res, struct_ty);
+    let inject_a = StructInjectOp::new(
+        &mut ctx,
+        sc_res2,
+        "a".to_string().into(),
+        nva_res,
+        struct_ty,
+    );
     assert_eq!(inject_a.result(&ctx).get_type(&ctx), struct_ty);
 
     let sc_res3 = struct_create.result(&ctx);
@@ -272,6 +283,7 @@ fn test_hw_struct_operations() {
 }
 
 #[test]
+// Covers external module declarations and instance construction.
 fn test_hw_extern_module_and_instance() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -296,6 +308,7 @@ fn test_hw_extern_module_and_instance() {
 }
 
 #[test]
+// Covers the native hardware type family and its metadata accessors.
 fn test_hw_native_types() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -316,6 +329,7 @@ fn test_hw_native_types() {
 }
 
 #[test]
+// Covers named enum variants and their explicit encodings.
 fn test_hw_enum_type() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -328,7 +342,10 @@ fn test_hw_enum_type() {
         &mut ctx,
         enum_name,
         i2,
-        vec![EnumVariant::new(add_name.clone(), 0), EnumVariant::new(sub_name, 1)],
+        vec![
+            EnumVariant::new(add_name.clone(), 0),
+            EnumVariant::new(sub_name, 1),
+        ],
     );
 
     let enum_ref = enum_ty.deref(&ctx);
@@ -339,6 +356,7 @@ fn test_hw_enum_type() {
 }
 
 #[test]
+// Covers union construction and variant extraction.
 fn test_hw_union_operations() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -351,10 +369,14 @@ fn test_hw_union_operations() {
     let f_byte: Identifier = "byte_val".try_into().unwrap();
     let f_word: Identifier = "word_val".try_into().unwrap();
 
-    let union_ty: TypeHandle = UnionType::get(&mut ctx, vec![
-        StructField::new(f_byte.clone(), i8),
-        StructField::new(f_word.clone(), i32),
-    ]).into();
+    let union_ty: TypeHandle = UnionType::get(
+        &mut ctx,
+        vec![
+            StructField::new(f_byte.clone(), i8),
+            StructField::new(f_word.clone(), i32),
+        ],
+    )
+    .into();
 
     let b_attr = int_attr(&mut ctx, 8, 0x7F);
     let b_const = ConstantOp::new(&mut ctx, b_attr);
@@ -379,6 +401,7 @@ fn test_hw_union_operations() {
 }
 
 #[test]
+// Covers parameter declarations, values, and hierarchical path metadata.
 fn test_hw_parameters_and_hierpath() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -403,4 +426,184 @@ fn test_hw_parameters_and_hierpath() {
         "top.cpu_tile.core.alu".to_string().into(),
     );
     verify_op(&hier_path, &ctx).expect("hw.hierpath should verify");
+}
+
+#[test]
+// Covers module input/output accessors and output operand ordering.
+fn test_hw_module_ports_and_output_accessors() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+
+    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i1: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let module = ModuleOp::new(&mut ctx, "ports".try_into().unwrap(), vec![i8, i1]);
+    let body = module.get_body(&ctx);
+    let input = module.get_input(&ctx, 0);
+    let output = OutputOp::new(&mut ctx, vec![input]);
+    output.get_operation().insert_at_back(body, &mut ctx);
+
+    assert_eq!(module.num_inputs(&ctx), 2);
+    assert_eq!(module.get_input(&ctx, 0).get_type(&ctx), i8);
+    assert_eq!(module.get_input(&ctx, 1).get_type(&ctx), i1);
+    assert_eq!(output.num_outputs(&ctx), 1);
+    assert_eq!(output.get_output(&ctx, 0).get_type(&ctx), i8);
+    verify_op(&module, &ctx).expect("module ports and output should verify");
+}
+
+#[test]
+// Proves wire identity and bitcast accessors remain observable through the API.
+fn test_hw_wire_identity_and_bitcast_accessors() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+    let (module, body) = create_test_module(&mut ctx, "wire_accessors");
+    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let constant_attr = int_attr(&mut ctx, 8, 0xA5);
+    let constant = ConstantOp::new(&mut ctx, constant_attr);
+    let constant_result = constant.result(&ctx);
+    let wire = WireOp::new(&mut ctx, "payload".to_string().into(), constant_result);
+    let wire_result = wire.result(&ctx);
+    let bitcast = BitcastOp::new(&mut ctx, wire_result, i8);
+    let bitcast_result = bitcast.result(&ctx);
+    let output = OutputOp::new(&mut ctx, vec![bitcast_result]);
+
+    constant.get_operation().insert_at_back(body, &mut ctx);
+    wire.get_operation().insert_at_back(body, &mut ctx);
+    bitcast.get_operation().insert_at_back(body, &mut ctx);
+    output.get_operation().insert_at_back(body, &mut ctx);
+
+    assert_eq!(wire.name(&ctx).as_str(), "payload");
+    assert_eq!(wire.input(&ctx), constant.result(&ctx));
+    assert_eq!(bitcast.input(&ctx), wire.result(&ctx));
+    assert_eq!(bitcast.result(&ctx).get_type(&ctx), i8);
+    verify_op(&module, &ctx).expect("wire identity graph should verify");
+}
+
+#[test]
+// Covers instance and external-module symbol metadata.
+fn test_hw_instance_and_external_module_metadata() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+    let i1: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let name: Identifier = "clock_source".try_into().unwrap();
+    let external = ExternModuleOp::new(&mut ctx, name.clone());
+    let input_attr = int_attr(&mut ctx, 1, 1);
+    let input = ConstantOp::new(&mut ctx, input_attr);
+    let input_result = input.result(&ctx);
+    let instance = InstanceOp::new(
+        &mut ctx,
+        "u_clock".to_string().into(),
+        name.clone().into(),
+        vec![input_result],
+        vec![i1],
+    );
+
+    assert_eq!(instance.instance_name(&ctx).as_str(), "u_clock");
+    let instance_module: Identifier = instance.module_name(&ctx).into();
+    assert_eq!(instance_module, name);
+    assert_eq!(instance.results(&ctx).len(), 1);
+    assert_eq!(external.get_operation().deref(&ctx).get_num_results(), 0);
+}
+
+#[test]
+// Covers array shape metadata and indexed access result types.
+fn test_hw_array_shape_and_index_operations() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+    let (module, body) = create_test_module(&mut ctx, "array_shapes");
+    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i2: TypeHandle = IntegerType::get(&mut ctx, 2, Signedness::Signless).into();
+    let array_ty = ArrayType::get(&mut ctx, 3, i8);
+    assert_eq!(array_ty.deref(&ctx).size(), 3);
+    assert_eq!(array_ty.deref(&ctx).element_type(), i8);
+
+    let mut values = Vec::new();
+    for value in 0..3 {
+        let value_attr = int_attr(&mut ctx, 8, value);
+        values.push(ConstantOp::new(&mut ctx, value_attr));
+    }
+    let value_results = values.iter().map(|value| value.result(&ctx)).collect();
+    let array = ArrayCreateOp::new(&mut ctx, value_results, array_ty.into());
+    let index_attr = int_attr(&mut ctx, 2, 1);
+    let index = ConstantOp::new(&mut ctx, index_attr);
+    let array_result = array.result(&ctx);
+    let index_result = index.result(&ctx);
+    let get = ArrayGetOp::new(&mut ctx, array_result, index_result, i8);
+    let get_result = get.result(&ctx);
+    let output = OutputOp::new(&mut ctx, vec![get_result]);
+
+    for value in values {
+        value.get_operation().insert_at_back(body, &mut ctx);
+    }
+    index.get_operation().insert_at_back(body, &mut ctx);
+    array.get_operation().insert_at_back(body, &mut ctx);
+    get.get_operation().insert_at_back(body, &mut ctx);
+    output.get_operation().insert_at_back(body, &mut ctx);
+    assert_eq!(get.result(&ctx).get_type(&ctx), i8);
+    assert_eq!(i2, index.result(&ctx).get_type(&ctx));
+    verify_op(&module, &ctx).expect("array shape graph should verify");
+}
+
+#[test]
+// Covers struct, union, and enum metadata lookup behavior.
+fn test_hw_struct_union_and_enum_metadata() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i16: TypeHandle = IntegerType::get(&mut ctx, 16, Signedness::Signless).into();
+    let byte: Identifier = "byte".try_into().unwrap();
+    let word: Identifier = "word".try_into().unwrap();
+    let fields = vec![
+        StructField::new(byte.clone(), i8),
+        StructField::new(word.clone(), i16),
+    ];
+    let struct_ty = StructType::get(&mut ctx, fields.clone());
+    let union_ty = UnionType::get(&mut ctx, fields);
+
+    {
+        let struct_ref = struct_ty.deref(&ctx);
+        assert_eq!(struct_ref.num_fields(), 2);
+        assert_eq!(struct_ref.get_field_index(&word), Some(1));
+        assert_eq!(struct_ref.get_field_type(&byte), Some(i8));
+        let union_ref = union_ty.deref(&ctx);
+        assert_eq!(union_ref.get_field_type(&word), Some(i16));
+    }
+
+    let enum_ty = EnumType::get(
+        &mut ctx,
+        "Opcode".try_into().unwrap(),
+        i8,
+        vec![EnumVariant::new("idle".try_into().unwrap(), 0)],
+    );
+    assert_eq!(enum_ty.deref(&ctx).variants()[0].value, 0);
+    assert_eq!(
+        enum_ty
+            .deref(&ctx)
+            .get_variant(&"idle".try_into().unwrap())
+            .unwrap()
+            .name
+            .to_string(),
+        "idle"
+    );
+
+    let alias = TypeAliasType::get(&mut ctx, "Byte".try_into().unwrap(), i8);
+    assert_eq!(alias.deref(&ctx).inner_type(), i8);
+}
+
+#[test]
+// Covers first-class module type signatures and printed IR representation.
+fn test_hw_module_type_and_printed_ir() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let input: Identifier = "input".try_into().unwrap();
+    let output: Identifier = "output".try_into().unwrap();
+    let signature = pliron_hw::hw::types::ModuleType::get(
+        &mut ctx,
+        vec![StructField::new(input, i8)],
+        vec![StructField::new(output, i8)],
+    );
+    let signature_text = signature.disp(&ctx).to_string();
+    assert!(signature_text.contains("hw.module_type"));
+    assert_eq!(signature.deref(&ctx).num_inputs(), 1);
+    assert_eq!(signature.deref(&ctx).num_outputs(), 1);
 }

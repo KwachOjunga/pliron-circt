@@ -15,8 +15,9 @@ use pliron::{
 };
 use pliron_hw::{
     comb::ops::{
-        AddOp, AndOp, ConcatOp, DivUOp, ExtractOp, ICmpOp, ICmpPredicate, ModUOp, MulOp, MuxOp,
-        OrOp, ParityOp, ReplicateOp, ShlOp, ShrSOp, ShrUOp, SubOp, XorOp,
+        AddOp, AllOp, AndOp, AnyOp, ConcatOp, DivUOp, ExtractOp, ICmpOp, ICmpPredicate, ModUOp,
+        MulOp, MuxOp, NegOp, NotOp, OrOp, ParityOp, ReplicateOp, ShlOp, ShrSOp, ShrUOp, SubOp,
+        XorOp,
     },
     hw::ops::{ConstantOp, ModuleOp, OutputOp},
     register_all,
@@ -35,6 +36,7 @@ fn create_test_module(ctx: &mut Context, name: &str) -> (ModuleOp, Ptr<BasicBloc
 }
 
 #[test]
+// Covers construction and verification of arithmetic dataflow operations.
 fn test_comb_arithmetic_ops() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -93,6 +95,7 @@ fn test_comb_arithmetic_ops() {
 }
 
 #[test]
+// Covers variadic bitwise logic, comparisons, and conditional selection.
 fn test_comb_logical_and_selection_ops() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -150,6 +153,7 @@ fn test_comb_logical_and_selection_ops() {
 }
 
 #[test]
+// Covers concatenation, extraction, replication, and parity reductions.
 fn test_comb_bit_manipulations() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -194,4 +198,37 @@ fn test_comb_bit_manipulations() {
     out.get_operation().insert_at_back(body, &mut ctx);
 
     verify_op(&module, &ctx).expect("comb bit manipulations in module should verify");
+}
+
+#[test]
+// Covers unary bitwise/negation operations and any/all reductions.
+fn test_comb_unary_and_reduction_ops() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+
+    let (module, body) = create_test_module(&mut ctx, "unary_test");
+    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let constant_attr = int_attr(&mut ctx, 8, 0x55);
+    let constant = ConstantOp::new(&mut ctx, constant_attr);
+    constant.get_operation().insert_at_back(body, &mut ctx);
+
+    let value = constant.result(&ctx);
+    let not = NotOp::new(&mut ctx, value, i8_ty);
+    let neg = NegOp::new(&mut ctx, value, i8_ty);
+    let any = AnyOp::new(&mut ctx, value, i1_ty);
+    let all = AllOp::new(&mut ctx, value, i1_ty);
+    for op in [
+        not.get_operation(),
+        neg.get_operation(),
+        any.get_operation(),
+        all.get_operation(),
+    ] {
+        op.insert_at_back(body, &mut ctx);
+    }
+
+    let not_result = not.result(&ctx);
+    let output = OutputOp::new(&mut ctx, vec![not_result]);
+    output.get_operation().insert_at_back(body, &mut ctx);
+    verify_op(&module, &ctx).expect("comb unary and reduction ops should verify");
 }
