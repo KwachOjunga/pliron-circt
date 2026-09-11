@@ -7,6 +7,7 @@
 
 pub mod ops;
 pub mod types;
+pub mod validation;
 
 use pliron::context::Context;
 

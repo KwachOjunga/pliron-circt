@@ -292,4 +292,3 @@ pub fn register(ctx: &mut Context) {
     EnumType::register(ctx);
     ModuleType::register(ctx);
 }
-

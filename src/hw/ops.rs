@@ -9,10 +9,9 @@ use pliron::{
     builtin::{
         attributes::{IdentifierAttr, IntegerAttr, StringAttr},
         op_interfaces::{
-            self, IsTerminatorInterface, IsolatedFromAboveInterface,
-            NOpdsInterface, NRegionsInterface, NResultsInterface, OneRegionInterface,
-            OneResultInterface, RegionKind, RegionKindInterface, SingleBlockRegionInterface,
-            SymbolOpInterface,
+            self, IsTerminatorInterface, IsolatedFromAboveInterface, NOpdsInterface,
+            NRegionsInterface, NResultsInterface, OneRegionInterface, OneResultInterface,
+            RegionKind, RegionKindInterface, SingleBlockRegionInterface, SymbolOpInterface,
         },
     },
     combine::{Parser, optional, token},
@@ -266,7 +265,9 @@ impl InstanceOp {
     /// Get output results of the instance.
     pub fn results(&self, ctx: &Context) -> Vec<Value> {
         let op = self.get_operation().deref(ctx);
-        (0..op.get_num_results()).map(|i| op.get_result(i)).collect()
+        (0..op.get_num_results())
+            .map(|i| op.get_result(i))
+            .collect()
     }
 }
 
@@ -515,12 +516,7 @@ pub struct ArraySliceOp;
 
 impl ArraySliceOp {
     /// Create a new `hw.array_slice`.
-    pub fn new(
-        ctx: &mut Context,
-        array: Value,
-        low_index: Value,
-        slice_type: TypeHandle,
-    ) -> Self {
+    pub fn new(ctx: &mut Context, array: Value, low_index: Value, slice_type: TypeHandle) -> Self {
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -732,7 +728,9 @@ impl StructExplodeOp {
     /// Get exploded field results.
     pub fn results(&self, ctx: &Context) -> Vec<Value> {
         let op = self.get_operation().deref(ctx);
-        (0..op.get_num_results()).map(|i| op.get_result(i)).collect()
+        (0..op.get_num_results())
+            .map(|i| op.get_result(i))
+            .collect()
     }
 }
 
