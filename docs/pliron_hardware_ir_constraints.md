@@ -263,3 +263,206 @@ The current design does not yet provide complete proofs for:
 These require module-level analyses, transformation infrastructure, or an
 external HDL tool. They should be added as explicit passes rather than hidden
 inside local operation constructors.
+
+## 13. Current workarounds and their tradeoffs
+
+Several implementation choices in this repository are deliberate workarounds
+for current pliron constraints. They keep the IR usable, but they are not all
+ideal representations. They should be treated as compatibility boundaries and
+revisited if pliron gains a more expressive mechanism.
+
+### 13.1 Flattened operation names
+
+The intended memory names `seq.hlmem.read` and `seq.hlmem.write` are not legal
+operation identifiers in the current pliron version. The implementation uses
+`seq.hlmem_read` and `seq.hlmem_write` instead.
+
+**Why it was necessary:** pliron's identifier parser accepts the dialect
+namespace and operation name shape, but rejects multiple nested separators.
+
+**What it costs:** textual names no longer mirror a natural parent/child
+operation hierarchy. Tools must group related operations by convention rather
+than by a nested identifier structure.
+
+**Semantic impact:** none by itself. The operation name is not the memory
+semantics; the operands, result type, timing contract, and verifier define
+those semantics.
+
+**Preferred long-term fix:** support nested operation namespaces in pliron, or
+introduce an explicit operation-family/category mechanism that does not encode
+hierarchy into the identifier.
+
+### 13.2 Globally prefixed attribute keys
+
+The SV dialect uses `assign_target`, `ff_target`, `ff_async_reset`,
+`ff_reset_polarity`, `memory_read_target`, and `memory_write_target` rather than
+reusing generic names such as `target` or `reset_polarity`.
+
+**Why it was necessary:** the current context rejects duplicate generated
+attribute dictionary keys across operation definitions.
+
+**What it costs:** attribute names are more verbose and the same semantic
+concept has different storage keys on different operations. Generic passes
+cannot simply ask for an attribute named `target`.
+
+**Semantic impact:** the prefixed keys are safe only because each operation's
+verifier and accessor map them to a documented semantic role. A pass that
+copies attributes by spelling rather than by meaning can silently lose reset
+or naming information.
+
+**Preferred long-term fix:** namespace attributes by dialect and operation, or
+make generated accessor keys scoped to the operation definition rather than
+globally unique in the context.
+
+### 13.3 Explicit `TypeHandle` downcasts
+
+Memory depth and element type are recovered by dereferencing a `TypeHandle` and
+downcasting to `MemoryType`. Similar checks distinguish `ClockType` and
+`ResetType` from ordinary integer values.
+
+**Why it was necessary:** pliron exposes generic type handles and trait-object
+types; concrete parameter access is not available through the generic handle
+interface.
+
+**What it costs:** every pass must manage borrow lifetimes and handle failed
+downcasts. Temporary dereference chains can fail to compile, and unchecked
+`unwrap` calls would turn malformed IR into a panic.
+
+**Semantic impact:** downcasting is valid only after verification has proved
+the expected type family. It must not be replaced with display-string parsing,
+which would confuse syntax with type identity.
+
+**Preferred long-term fix:** provide typed handles or type interfaces for
+reusable capabilities such as bit width, memory shape, clock identity, and
+element type.
+
+### 13.4 Constructors are permissive; verifiers are authoritative
+
+The builders accept generic `Value` and `TypeHandle` inputs. For example,
+`AlwaysFfOp::new` can be called with a non-clock value and an unsupported reset
+polarity; `verify_op` later rejects the result.
+
+**Why it was necessary:** pliron operation construction is generic and must
+support parsing, diagnostics, rewrites, and intentionally malformed test IR.
+
+**What it costs:** invalid hardware can exist temporarily, and callers may
+mistakenly assume a successful constructor means legal IR.
+
+**Semantic impact:** transformations must verify source operations before
+lowering and verify destination operations after construction. Skipping either
+step can propagate invalid clock, reset, memory, or target contracts.
+
+**Preferred long-term fix:** retain permissive raw construction for parsers and
+diagnostics, but add checked builders returning `Result` for normal compiler
+passes.
+
+### 13.5 Source operations remain beside lowered SV operations
+
+`lower_module_registers` and `lower_module` insert SV operations before
+`hw.output` but intentionally retain the original `seq` operations.
+
+**Why it was necessary:** the current pass infrastructure does not provide a
+complete dialect-conversion transaction with replacement maps, rollback, and
+source-operation erasure semantics for this workflow.
+
+**What it costs:** the module temporarily contains two representations of the
+same behavior. A printer must explicitly ignore retained semantic source ops,
+and module validation must avoid counting them as emitted SV targets.
+
+**Semantic impact:** retaining both forms is safe only while the correspondence
+is understood and duplicate state is not interpreted as two physical registers.
+It is not a final emitted IR form.
+
+**Preferred long-term fix:** use a conversion framework with explicit source
+replacement/erasure, mapping tables, legality declarations, and rollback on
+failed conversion. Alternatively, place emitted SV intent in a separate module
+or conversion result rather than mixing abstraction levels in one graph.
+
+### 13.6 Generated fallback names
+
+When a sequential result or memory has no debug name, lowering generates names
+such as `state_0`, `read_data_0`, and `memory_0`.
+
+**Why it was necessary:** SystemVerilog emission requires stable identifiers,
+while SSA values may be unnamed.
+
+**What it costs:** fallback names depend on traversal order and can change
+after unrelated IR edits. They are suitable for deterministic local emission,
+not for a stable external ABI.
+
+**Semantic impact:** names must not be treated as hardware identity unless the
+module validation pass reserves them and checks collisions. An external port,
+debug net, or instance name needs an explicit source-level name.
+
+**Preferred long-term fix:** introduce a module-scoped name allocator with
+stable identity keys, collision diagnostics, and a distinction between debug
+names, emitted names, and ABI-visible names.
+
+### 13.7 Memory declaration remapping
+
+When a `seq.hlmem` is lowered, the pass creates an `sv.mem_decl` and remaps
+`seq.hlmem_read` and `seq.hlmem_write` operands to the generated SV memory
+value.
+
+**Why it was necessary:** SV memory operations require an emission-side memory
+resource, while the source memory value belongs to the semantic `seq` dialect.
+
+**What it costs:** the pass must maintain an explicit value mapping and must
+reject ports whose source memory declaration was not found. A partial mapping
+would produce an SV process that references the wrong storage.
+
+**Semantic impact:** the mapping must preserve depth, element type, port
+latency, and read-during-write policy. The current SV memory operations do not
+yet carry the full collision policy, so memory legalization remains incomplete.
+
+**Preferred long-term fix:** make memory conversion mappings first-class and
+carry the source memory's collision policy and port metadata into the target
+operation or conversion state.
+
+### 13.8 `sv` is emission intent, not a complete semantic HDL AST
+
+The current printer emits the supported operation surface, but it is not a
+general SystemVerilog parser or language model. Unsupported operations are
+rejected rather than guessed.
+
+**Why it was necessary:** silently printing unsupported IR would produce source
+that looks plausible while losing hardware meaning.
+
+**What it costs:** complete conversion requires more operations for expressions,
+declarations, ports, memories, instances, procedural control, and tool-specific
+constructs. Users cannot treat every `hw` or `comb` operation as printable SV
+yet.
+
+**Semantic impact:** the supported printer boundary is explicit and safe, but
+it is not language completeness.
+
+**Preferred long-term fix:** define an explicit SV emission IR with typed
+expressions, declarations, process bodies, port signatures, and source-level
+legality checks, then lower into a dedicated printer or external SV AST.
+
+## 14. How to work safely with these workarounds
+
+Compiler passes should follow this sequence:
+
+```text
+collect source values and concrete metadata
+        -> verify source operations
+        -> create target operations
+        -> verify target operations
+        -> validate enclosing module and names
+        -> print or emit only supported target operations
+```
+
+Do not:
+
+- infer type meaning from printed type text;
+- assume constructors enforce clock or reset legality;
+- reuse generic attribute spellings across dialect operations;
+- erase source state before a replacement mapping is recorded;
+- treat fallback names as stable ABI names;
+- silently omit an unsupported operation during emission;
+- interpret retained source and lowered target operations as independent
+  hardware state.
+
+These rules keep the workarounds visible and prevent host-framework limitations
+from becoming accidental hardware semantics.
