@@ -28,6 +28,7 @@ The `hw` dialect defines core hardware types and structural operations for repre
 | `UnionType` | `!hw.union<f0: t0, ...>` | `hw.union<f0: t0, ...>` | Hardware union sharing physical bit storage |
 | `TypeAliasType` | `!hw.typealias<@sym, t>` | `hw.typealias<@sym, inner_type>` | Reference to a symbolic `hw.typedecl` |
 | `ModuleType` | `!hw.module_type<...>` | `hw.module_type<in (...), out (...)>` | First-class functional hardware interface signature |
+| `EnumType` | `!hw.enum<Name: iN, ...>` | `hw::types::EnumType::get(ctx, name, underlying, variants)` | Named finite domain with explicit bit encodings |
 
 ### 2. Operations Parity
 
@@ -55,4 +56,9 @@ The `hw` dialect defines core hardware types and structural operations for repre
   - `hw.struct_explode`: Unpack all fields into separate SSA values.
 - **Declarations**:
   - `hw.typedecl`: Named type declaration symbol.
+
+Use `hw` for structural identity and hierarchy, `comb` for pure zero-cycle
+functions, and `seq` for clocked state. This division keeps enum encodings,
+arithmetic signedness, and reset/clock priority available to verification and
+lowering. Lower structurally only after these semantic analyses have run.
 
