@@ -360,6 +360,94 @@ impl XorOp {
     }
 }
 
+/// Bitwise complement operation: `comb.not`.
+#[pliron_op(
+    name = "comb.not",
+    format,
+    interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
+    verifier = "succ",
+)]
+pub struct NotOp;
+
+impl NotOp {
+    /// Create a new `comb.not`.
+    pub fn new(ctx: &mut Context, val: Value, res_ty: TypeHandle) -> Self {
+        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![val], vec![], 0);
+        NotOp { op }
+    }
+
+    /// Get result value.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
+/// Two's-complement negation operation: `comb.neg`.
+#[pliron_op(
+    name = "comb.neg",
+    format,
+    interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
+    verifier = "succ",
+)]
+pub struct NegOp;
+
+impl NegOp {
+    /// Create a new `comb.neg`.
+    pub fn new(ctx: &mut Context, val: Value, res_ty: TypeHandle) -> Self {
+        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![val], vec![], 0);
+        NegOp { op }
+    }
+
+    /// Get result value.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
+/// OR reduction operation: `comb.any`.
+#[pliron_op(
+    name = "comb.any",
+    format,
+    interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
+    verifier = "succ",
+)]
+pub struct AnyOp;
+
+impl AnyOp {
+    /// Create a new `comb.any`, producing one for any set input bit.
+    pub fn new(ctx: &mut Context, val: Value, i1_ty: TypeHandle) -> Self {
+        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![i1_ty], vec![val], vec![], 0);
+        AnyOp { op }
+    }
+
+    /// Get result value.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
+/// AND reduction operation: `comb.all`.
+#[pliron_op(
+    name = "comb.all",
+    format,
+    interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
+    verifier = "succ",
+)]
+pub struct AllOp;
+
+impl AllOp {
+    /// Create a new `comb.all`, producing one only when every input bit is set.
+    pub fn new(ctx: &mut Context, val: Value, i1_ty: TypeHandle) -> Self {
+        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![i1_ty], vec![val], vec![], 0);
+        AllOp { op }
+    }
+
+    /// Get result value.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
 // -----------------------------------------------------------------------------
 // Multiplexer & Comparison
 // -----------------------------------------------------------------------------
@@ -539,6 +627,10 @@ pub fn register(ctx: &mut Context) {
     AndOp::register(ctx);
     OrOp::register(ctx);
     XorOp::register(ctx);
+    NotOp::register(ctx);
+    NegOp::register(ctx);
+    AnyOp::register(ctx);
+    AllOp::register(ctx);
     MuxOp::register(ctx);
     ICmpOp::register(ctx);
     ConcatOp::register(ctx);
