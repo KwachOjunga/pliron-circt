@@ -20,7 +20,7 @@ use pliron_hw::{
     },
     sv::{
         canonicalization::eliminate_redundant_assign,
-        lowering::{lower_compreg, lower_firreg},
+        lowering::{lower_compreg, lower_firreg, lower_module_registers},
         ops::{AlwaysFfNoResetOp, AlwaysFfOp, AssignOp},
         printer::render_module,
     },
@@ -280,4 +280,50 @@ fn test_sv_printer_renders_register_and_assignment() {
     assert!(source.contains("assign next_value = input_value;"));
     assert!(source.contains("always_ff @(posedge clk)"));
     assert!(source.contains("state <= reset_value;"));
+}
+
+#[test]
+// Proves the module conversion pass walks seq registers and inserts SV intent.
+fn test_sv_module_conversion_lowers_registers() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
+    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
+    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let module = ModuleOp::new(
+        &mut ctx,
+        "sv_conversion".try_into().unwrap(),
+        vec![clock_ty, reset_ty, i8_ty, i8_ty],
+    );
+    let body = module.get_body(&ctx);
+    let clock = module.get_input(&ctx, 0);
+    let reset = module.get_input(&ctx, 1);
+    let input = module.get_input(&ctx, 2);
+    let reset_value = module.get_input(&ctx, 3);
+    let compreg = CompRegOp::new(&mut ctx, clock, input, i8_ty);
+    let compreg_result = compreg.result(&ctx);
+    compreg_result.set_name(&ctx, Some("plain_state".try_into().unwrap()));
+    let firreg = FirRegOp::new(
+        &mut ctx,
+        clock,
+        input,
+        reset,
+        reset_value,
+        i8_ty,
+        true,
+        "active_low",
+    );
+    let firreg_result = firreg.result(&ctx);
+    firreg_result.set_name(&ctx, Some("reset_state".try_into().unwrap()));
+    reset.set_name(&ctx, Some("reset".try_into().unwrap()));
+    let output = OutputOp::new(&mut ctx, vec![compreg_result, firreg_result]);
+    compreg.get_operation().insert_at_back(body, &mut ctx);
+    firreg.get_operation().insert_at_back(body, &mut ctx);
+    output.get_operation().insert_at_back(body, &mut ctx);
+
+    assert_eq!(lower_module_registers(&mut ctx, &module).unwrap(), 2);
+    let source = render_module(&ctx, &module).unwrap();
+    assert!(source.contains("logic [7:0] plain_state;"));
+    assert!(source.contains("logic [7:0] reset_state;"));
+    assert!(source.contains("negedge reset"));
 }

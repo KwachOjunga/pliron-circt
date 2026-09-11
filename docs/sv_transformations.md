@@ -254,6 +254,9 @@ Implemented today:
 - local type, target-name, and reset-policy verification;
 - deterministic source rendering for the implemented SV operations;
 - typed lowering helpers for `comb` values, `seq.compreg`, and `seq.firreg`;
+- the `lower_module_registers` pass, which walks a verified `hw.module`,
+  lowers every `seq.compreg` and `seq.firreg`, and inserts SV operations before
+  `hw.output`;
 - redundant-assignment canonicalization through `Rewriter`;
 - module-local validation for SV targets, instance names, clock/reset
   assignment boundaries, and same-address memory write conflicts;
@@ -261,8 +264,9 @@ Implemented today:
 
 Not implemented yet:
 
-- a module-wide conversion driver from `hw`/`comb`/`seq` to `sv` that walks
-  every source operation and inserts the generated operations;
+- a complete module-wide conversion driver for every `hw`/`comb`/`seq`
+  operation; the implemented register conversion is the first supported
+  module conversion stage;
 - full SV expression, declaration, module, and instance operations;
 - memory lowering with collision-policy legalization;
 - cross-module symbol resolution and complete driver analysis;
