@@ -13,7 +13,7 @@ Hardware dialect ecosystem for [pliron](https://github.com/pliron-org/pliron), r
 
 ---
 
-## The `hw` Dialect (Completed MLIR Parity)
+## The `hw` Dialect (Partial MLIR Parity)
 
 The `hw` dialect defines core hardware types and structural operations for representing netlists and hierarchy without prescribing synthesis or event-driven simulation mechanics.
 

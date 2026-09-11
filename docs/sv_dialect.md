@@ -6,14 +6,20 @@ The `sv` dialect is the target-facing emission layer for SystemVerilog intent.
 It is deliberately separate from `hw`, `comb`, and `seq`:
 
 - `hw` preserves hierarchy, ports, wires, and structural identity.
-- `comb` preserves pure zero-cycle computation.
-- `seq` preserves clocks, state, reset priority, latency, and memory behavior.
+- `comb` preserves pure zero-cycle computation. - basically combinational circuits
+- `seq` preserves clocks, state, reset priority, latency, and memory behavior. - a very
+fancy way of describing sequential circuits 
 - `sv` records how those verified meanings should be emitted as SystemVerilog.
 
 This separation prevents a backend from using textual SystemVerilog syntax as
 the source of truth for hardware semantics. SV operations should be created
 after semantic analysis and lowering decisions have established what the
 circuit means.
+A fairly inaccurate but particularly image befitting analogy would be to think
+of the dialect as the llvm ir equivalent of the dialects. High level enough to
+capture the circuit designers intent, but too low level to offer
+advantages of having a domain level specification.
+
 
 ## Implemented operations
 

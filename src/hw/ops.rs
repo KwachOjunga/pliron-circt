@@ -52,10 +52,12 @@ pub struct ModuleOp;
 
 #[op_interface_impl]
 impl RegionKindInterface for ModuleOp {
+    #[inline(always)]
     fn get_region_kind(&self, _idx: usize) -> RegionKind {
         RegionKind::Graph
     }
 
+    #[inline(always)]
     fn has_ssa_dominance(&self, _idx: usize) -> bool {
         false
     }
