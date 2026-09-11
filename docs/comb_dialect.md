@@ -4,6 +4,9 @@
 
 The `comb` dialect provides a formal, zero-delay representation for combinational logic operations, integer arithmetic, bitwise Boolean transformations, multiplexers, and bit-level extractions.
 
+The intended contract is described here; the current implementation gaps are
+tracked separately in [`comb_limitations.md`](comb_limitations.md).
+
 Combinational logic compute output values purely as functions of instantaneous input values:
 $$O = F(I)$$
 
@@ -46,6 +49,10 @@ All arithmetic operations operate on `iN` integers and produce an `iN` result wi
 - `comb.and`: Bitwise conjunction $A \land B$.
 - `comb.or`: Bitwise disjunction $A \lor B$.
 - `comb.xor`: Bitwise exclusive-or $A \oplus B$. Inversion is canonicalized as $A \oplus \mathbf{1}_{N}$.
+- `comb.not`: Bitwise complement of every bit, producing an $N$-bit result.
+- `comb.neg`: Two's-complement negation, equivalent to `0 - A` modulo $2^N$.
+- `comb.any`: OR-reduction, producing `i1` iff any input bit is one.
+- `comb.all`: AND-reduction, producing `i1` iff every input bit is one.
 
 ### Multiplexers & Comparisons
 - `comb.mux`: Three-operand selection:
@@ -62,6 +69,26 @@ All arithmetic operations operate on `iN` integers and produce an `iN` result wi
 - `comb.replicate`: Replicates an $N$-bit value $K$ times to produce an integer of width $K \times N$.
 - `comb.parity`: Computes single-bit odd/even reduction parity across all bits.
 
+Unary operations preserve operand width except reductions, whose result is one
+bit. Variadic bitwise operations require a non-empty operand list and a common
+operand width. All Comb operations are pure and have no implicit clock or
+storage.
+
+### Width and undefined-value rules
+
+Arithmetic results are truncated to the declared result width, so overflow
+wraps modulo $2^N$. Signedness is selected by the operation (`divs`, `mods`,
+and `shrs`), not by the signless `iN` wire type. Division and remainder by
+zero are undefined and must not be constant-folded to a guessed value.
+Shifts whose amount is at least the value width produce zero for `shl` and
+`shru`, and sign fill for `shrs`.
+
+`comb.icmp` requires equal-width operands and produces `i1`; `comb.mux`
+requires an `i1` condition and equal branch types. `comb.extract` must stay
+within the source width, `comb.replicate` requires a positive count, and
+`comb.concat` must declare a result width equal to the sum of operand widths.
+These are semantic invariants even though constructors receive result types.
+
 ---
 
 ## 4. Engineering Rationale & Design Incentives
@@ -75,3 +102,22 @@ All arithmetic operations operate on `iN` integers and produce an `iN` result wi
    - Subtraction of constants is canonicalized to addition of the two's-complement negation.
    - Mux with identical true and false values folds directly to the branch value: $\text{mux}(c, v, v) \implies v$.
    - Mux with boolean condition folds: $\text{mux}(c, 1, 0) \implies c$.
+
+## 5. How `comb` is used
+
+`comb` is the functional middle layer between structural `hw` and sequential
+`seq`: `hw.module` establishes ports, `comb` computes zero-cycle results, and
+`seq` captures those results at clock edges when state is required. This lets
+rewrites change gates without changing cycle latency, reset behavior,
+clock-domain identity, or hardware object identity.
+
+A feedback path made only from `comb` operations is illegal because there is
+no state or delay to establish a fixed-point meaning. Insert a `seq` register
+when feedback is intentional.
+
+```text
+%sum = comb.add %a, %b : i8
+%is_zero = comb.icmp "eq", %sum, %zero : i8 -> i1
+%selected = comb.mux %is_zero, %fallback, %sum : i8
+%parity = comb.parity %selected : i8 -> i1
+```

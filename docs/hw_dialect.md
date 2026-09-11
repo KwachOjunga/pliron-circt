@@ -6,6 +6,11 @@ The `hw` dialect in `pliron-hw` defines the foundational structural netlist and 
 
 The design follows the principles in `AGENTS.md`: a dialect is a **semantic contract**, not merely a collection of operations.
 
+For the gap between this intended contract and the currently enforced
+implementation, see [`hw_limitations.md`](hw_limitations.md). That document
+also describes how the dialect's capacity can be expanded toward typed RTL,
+checked hierarchy, and lowerable hardware representations.
+
 ---
 
 ## 2. Abstraction Level & Semantic Model
@@ -44,6 +49,7 @@ Every type in the `hw` dialect specifies exact bit-level interpretation:
 | **Struct** | `!hw.struct<f1: T1, ...>` | `hw::types::StructType` | Heterogeneous ordered bundle of named fields. Field order and bitwidths are strictly preserved. |
 | **Union** | `!hw.union<f1: T1, ...>` | `hw::types::UnionType` | Tagged variant occupying $\max(\text{width}(T_i))$ bits. Encodes mutual exclusivity in hardware storage. |
 | **Type Alias** | `!hw.typealias<@sym, T>` | `hw::types::TypeAliasType` | Symbolic name referencing an `hw.typedecl`. Unfolded during lowering without changing bit-level semantics. |
+| **Enum** | `!hw.enum<Name: iN, variant = value, ...>` | `hw::types::EnumType` | Named finite domain with explicit integer encodings and a fixed storage width. |
 
 ---
 
@@ -83,3 +89,29 @@ Every type in the `hw` dialect specifies exact bit-level interpretation:
    Keeping structural netlists separate from logic operations maintains modularity. A structural pass (e.g., module inlining, port renaming, wire deduplication) should not need to know whether the arithmetic inside is signed or unsigned.
 3. **Why Non-Destructive Injections (`array_inject`, `struct_inject`)?**
    Hardware languages often assign individual fields: `bundle.valid = 1`. In SSA representation, values are immutable. Inject operations allow clean, functional updates that synthesize directly into wire selection or multiplexer trees without imperative memory mutation.
+
+## 6. How `hw` composes with other dialects
+
+Use `hw` for structural identity and hierarchy, `comb` for pure zero-cycle
+functions, and `seq` for clocked state. An ALU can use an `hw.enum` opcode,
+`comb.icmp` and `comb.mux` for selection, and a `seq` register for a latched
+result. `hw` owns module symbols, port positions, instances, wires, and
+aggregate layout; it does not absorb arithmetic or register timing.
+
+### Enum types
+
+Use `hw.enum` for finite named bus values such as opcodes or protocol states:
+
+```text
+!hw.enum<Opcode: i2, add = 0, sub = 1, mul = 2>
+```
+
+The underlying integer type controls storage width, and every encoding must
+fit that width. Declaration order is retained for deterministic printing and
+lowering, but does not imply priority or execution order. An enum is not
+silently interchangeable with `iN`, because that discards its legal value
+domain and names needed by verification and emission.
+
+Since `hw.module` uses a graph region, lexical order is not execution order.
+Lowering may topologically order combinational dependencies, but must preserve
+module symbols, port positions, enum encodings, and named-wire identity.
