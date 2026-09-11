@@ -21,7 +21,10 @@ use pliron_hw::{
     sv::{
         canonicalization::eliminate_redundant_assign,
         lowering::{lower_compreg, lower_firreg, lower_module_registers},
-        ops::{AlwaysFfNoResetOp, AlwaysFfOp, AssignOp},
+        ops::{
+            AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, InstanceOp, LogicDeclOp,
+            MemDeclOp,
+        },
         printer::render_module,
     },
 };
@@ -326,4 +329,39 @@ fn test_sv_module_conversion_lowers_registers() {
     assert!(source.contains("logic [7:0] plain_state;"));
     assert!(source.contains("logic [7:0] reset_state;"));
     assert!(source.contains("negedge reset"));
+}
+
+#[test]
+// Proves the SV surface can describe declarations, procedural combinational
+// logic, instances, and memory resources without collapsing them into assigns.
+fn test_sv_declarations_instances_and_memory_render() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let memory_ty: TypeHandle = MemoryType::get(&mut ctx, 16, i8_ty).into();
+    let module = ModuleOp::new(&mut ctx, "sv_surface".try_into().unwrap(), vec![i8_ty]);
+    let body = module.get_body(&ctx);
+    let input = module.get_input(&ctx, 0);
+    input.set_name(&ctx, Some("input_value".try_into().unwrap()));
+    let declaration = LogicDeclOp::new(&mut ctx, "declared_value", i8_ty);
+    let declared_value = declaration.result(&ctx);
+    let combinational = AlwaysCombOp::new(&mut ctx, "declared_value", input);
+    let instance = InstanceOp::new(&mut ctx, "u_child", "child_module", vec![input]);
+    let memory = MemDeclOp::new(&mut ctx, "storage", memory_ty);
+    let output = OutputOp::new(&mut ctx, vec![declared_value]);
+    for op in [
+        declaration.get_operation(),
+        combinational.get_operation(),
+        instance.get_operation(),
+        memory.get_operation(),
+    ] {
+        op.insert_at_back(body, &mut ctx);
+    }
+    output.get_operation().insert_at_back(body, &mut ctx);
+
+    let source = render_module(&ctx, &module).expect("expanded SV surface should render");
+    assert!(source.contains("logic [7:0] declared_value;"));
+    assert!(source.contains("always_comb begin"));
+    assert!(source.contains("child_module u_child (input_value);"));
+    assert!(source.contains("logic [7:0] storage [0:15];"));
 }

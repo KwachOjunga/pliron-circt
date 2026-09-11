@@ -20,8 +20,10 @@ use pliron::{
 
 use crate::{
     hw::ops::ModuleOp,
-    seq::types::{ClockType, ResetType},
-    sv::ops::{AlwaysFfNoResetOp, AlwaysFfOp, AssignOp},
+    seq::types::{ClockType, MemoryType, ResetType},
+    sv::ops::{
+        AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, InstanceOp, LogicDeclOp, MemDeclOp,
+    },
 };
 
 fn value_name(ctx: &Context, value: Value) -> String {
@@ -66,6 +68,35 @@ fn sv_decl_type(ctx: &Context, value: Value, kind: &str) -> String {
 }
 
 fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<String> {
+    if let Some(comb) = Operation::get_op::<AlwaysCombOp>(op_ptr, ctx) {
+        let op = comb.get_operation().deref(ctx);
+        return Some(format!(
+            "always_comb begin\n  {} = {};\nend",
+            comb.get_attr_comb_target(ctx)
+                .expect("verified always_comb target")
+                .as_ref(),
+            value_name(ctx, op.get_operand(0))
+        ));
+    }
+    if let Some(instance) = Operation::get_op::<InstanceOp>(op_ptr, ctx) {
+        let op = instance.get_operation().deref(ctx);
+        let inputs = (0..op.get_num_operands())
+            .map(|index| value_name(ctx, op.get_operand(index)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Some(format!(
+            "{} {} ({});",
+            instance
+                .get_attr_sv_instance_module(ctx)
+                .expect("verified instance module")
+                .as_ref(),
+            instance
+                .get_attr_sv_instance_name(ctx)
+                .expect("verified instance name")
+                .as_ref(),
+            inputs
+        ));
+    }
     if let Some(assign) = Operation::get_op::<AssignOp>(op_ptr, ctx) {
         let op = assign.get_operation().deref(ctx);
         let value = op.get_operand(0);
@@ -73,6 +104,34 @@ fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<S
             "assign {} = {};",
             assign.target(ctx).as_ref(),
             value_name(ctx, value)
+        ));
+    }
+    if let Some(declaration) = Operation::get_op::<LogicDeclOp>(op_ptr, ctx) {
+        return Some(format!(
+            "{} {};",
+            sv_decl_type(ctx, declaration.result(ctx), "logic"),
+            declaration
+                .get_attr_logic_target(ctx)
+                .expect("verified logic target")
+                .as_ref()
+        ));
+    }
+    if let Some(memory) = Operation::get_op::<MemDeclOp>(op_ptr, ctx) {
+        let op = memory.get_operation().deref(ctx);
+        let memory_type = op.get_result(0).get_type(ctx);
+        let memory_type_ref = memory_type.deref(ctx);
+        let memory_type = memory_type_ref
+            .downcast_ref::<MemoryType>()
+            .expect("verified memory declaration type");
+        let element = sv_type_handle(ctx, memory_type.element_type());
+        return Some(format!(
+            "{} {} [0:{}];",
+            element,
+            memory
+                .get_attr_memory_target(ctx)
+                .expect("verified memory target")
+                .as_ref(),
+            memory_type.depth() - 1
         ));
     }
     if let Some(always) = Operation::get_op::<AlwaysFfNoResetOp>(op_ptr, ctx) {

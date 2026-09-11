@@ -17,6 +17,52 @@ circuit means.
 
 ## Implemented operations
 
+### `sv.logic_decl`
+
+Declares a named `logic` object. Use it when a target variable must exist
+independently of a particular assignment process. Its result carries the
+declared type and `logic_target` carries the emitted name.
+
+### `sv.always_comb`
+
+Represents a procedural combinational assignment with a `comb_target` and one
+source value. Use it when the target is intentionally emitted as an
+`always_comb` process rather than a continuous assignment:
+
+```systemverilog
+always_comb begin
+  result = expression;
+end
+```
+
+It does not introduce state and cannot replace `seq` operations.
+
+### `sv.instance`
+
+Represents a SystemVerilog module instance. `sv_instance_module` identifies
+the referenced module, `sv_instance_name` identifies the instance, and
+operands preserve input connection order:
+
+```systemverilog
+child_module u_child (input_a, input_b);
+```
+
+Hierarchy and symbol resolution still originate in `hw`; this operation is
+the emission form after those structural contracts have been checked.
+
+### `sv.mem_decl`
+
+Declares a `!seq.mem` resource as a SystemVerilog unpacked memory array. The
+`memory_target` is the emitted name, while depth and element type remain in
+the `!seq.mem` type:
+
+```systemverilog
+logic [31:0] storage [0:255];
+```
+
+Read/write timing and collision behavior remain the responsibility of the
+sequential memory operations and their lowering pass.
+
 ### `sv.assign`
 
 `sv.assign` represents a named continuous assignment:
