@@ -101,6 +101,12 @@ The current implementation provides emission operations and local verifiers,
 but not yet a conversion pass, canonicalization patterns, or a SystemVerilog
 printer. Those are the next implementation boundary.
 
+Detailed transformation rules are documented in
+[`sv_transformations.md`](sv_transformations.md). The practical constraints
+that shape these operations, including pliron's global attribute-key and
+operation-name rules, are recorded in
+[`pliron_hardware_ir_constraints.md`](pliron_hardware_ir_constraints.md).
+
 ## Verification boundary
 
 Local SV verification rejects malformed operation contracts. It cannot prove:
@@ -113,3 +119,16 @@ Local SV verification rejects malformed operation contracts. It cannot prove:
 
 Those checks belong to symbol-table, driver, clock-domain, and emitted-source
 validation passes.
+
+## Implementation attribute keys
+
+The semantic target name is represented by operation-specific keys because the
+current pliron context requires attribute dictionary keys to be globally
+unique:
+
+- `sv.assign` uses `assign_target`;
+- `sv.always_ff` uses `ff_target`, `ff_async_reset`, and
+  `ff_reset_polarity`.
+
+These names are storage keys, not a change in the conceptual meaning of the
+attributes described above.
