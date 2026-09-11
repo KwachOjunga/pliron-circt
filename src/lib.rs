@@ -5,6 +5,7 @@
 
 pub mod comb;
 pub mod hw;
+pub mod seq;
 
 use pliron::context::Context;
 
@@ -12,4 +13,5 @@ use pliron::context::Context;
 pub fn register_all(ctx: &mut Context) {
     hw::register(ctx);
     comb::register(ctx);
+    seq::register(ctx);
 }
