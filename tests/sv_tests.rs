@@ -15,15 +15,15 @@ use pliron_hw::{
     },
     register_all,
     seq::{
-        ops::{CompRegOp, FirRegOp, HLMemOp, HLMemWriteOp},
+        ops::{CompRegOp, FirRegOp, HLMemOp, HLMemReadOp, HLMemWriteOp},
         types::{ClockType, MemoryType, ResetType},
     },
     sv::{
         canonicalization::eliminate_redundant_assign,
-        lowering::{lower_compreg, lower_firreg, lower_module_registers},
+        lowering::{lower_compreg, lower_firreg, lower_module, lower_module_registers},
         ops::{
             AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, InstanceOp, LogicDeclOp,
-            MemDeclOp,
+            MemDeclOp, MemReadOp, MemWriteOp,
         },
         printer::render_module,
     },
@@ -364,4 +364,80 @@ fn test_sv_declarations_instances_and_memory_render() {
     assert!(source.contains("always_comb begin"));
     assert!(source.contains("child_module u_child (input_value);"));
     assert!(source.contains("logic [7:0] storage [0:15];"));
+}
+
+#[test]
+// Proves synchronous memory ports lower and render with registered reads and enabled writes.
+fn test_sv_memory_lowering_and_process_render() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
+    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let i4_ty: TypeHandle = IntegerType::get(&mut ctx, 4, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let memory_ty: TypeHandle = MemoryType::get(&mut ctx, 16, i8_ty).into();
+    let module = ModuleOp::new(
+        &mut ctx,
+        "sv_memory".try_into().unwrap(),
+        vec![clock_ty, memory_ty, i4_ty, i8_ty, i1_ty],
+    );
+    let body = module.get_body(&ctx);
+    let clock = module.get_input(&ctx, 0);
+    let memory = module.get_input(&ctx, 1);
+    let address = module.get_input(&ctx, 2);
+    let data = module.get_input(&ctx, 3);
+    let enable = module.get_input(&ctx, 4);
+    memory.set_name(&ctx, Some("storage".try_into().unwrap()));
+    address.set_name(&ctx, Some("address".try_into().unwrap()));
+    data.set_name(&ctx, Some("write_data".try_into().unwrap()));
+    enable.set_name(&ctx, Some("write_enable".try_into().unwrap()));
+    clock.set_name(&ctx, Some("clock".try_into().unwrap()));
+    let read = MemReadOp::new(&mut ctx, "read_data", clock, memory, address, i8_ty);
+    let write = MemWriteOp::new(&mut ctx, "storage", clock, memory, address, data, enable);
+    let read_value = read.result(&ctx);
+    let output = OutputOp::new(&mut ctx, vec![read_value]);
+    read.get_operation().insert_at_back(body, &mut ctx);
+    write.get_operation().insert_at_back(body, &mut ctx);
+    output.get_operation().insert_at_back(body, &mut ctx);
+    let source = render_module(&ctx, &module).unwrap();
+    assert!(source.contains("always_ff @(posedge clock)"));
+    assert!(source.contains("read_data <= storage[address];"));
+    assert!(source.contains("if (write_enable)"));
+    assert!(source.contains("storage[address] <= write_data;"));
+}
+
+#[test]
+// Proves the module pass materializes seq memory resources before lowering ports.
+fn test_sv_module_conversion_lowers_memory_resource_and_ports() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
+    let i4_ty: TypeHandle = IntegerType::get(&mut ctx, 4, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let memory_ty: TypeHandle = MemoryType::get(&mut ctx, 16, i8_ty).into();
+    let module = ModuleOp::new(
+        &mut ctx,
+        "sv_memory_conversion".try_into().unwrap(),
+        vec![clock_ty, memory_ty, i4_ty],
+    );
+    let body = module.get_body(&ctx);
+    let clock = module.get_input(&ctx, 0);
+    let memory_input = module.get_input(&ctx, 1);
+    let address = module.get_input(&ctx, 2);
+    clock.set_name(&ctx, Some("clock".try_into().unwrap()));
+    memory_input.set_name(&ctx, Some("storage".try_into().unwrap()));
+    address.set_name(&ctx, Some("address".try_into().unwrap()));
+    let memory = HLMemOp::new(&mut ctx, memory_ty, "read-first");
+    let memory_value = memory.result(&ctx);
+    memory_value.set_name(&ctx, Some("storage".try_into().unwrap()));
+    let read = HLMemReadOp::new(&mut ctx, clock, memory_value, address, i8_ty);
+    let read_value = read.result(&ctx);
+    let output = OutputOp::new(&mut ctx, vec![read_value]);
+    memory.get_operation().insert_at_back(body, &mut ctx);
+    read.get_operation().insert_at_back(body, &mut ctx);
+    output.get_operation().insert_at_back(body, &mut ctx);
+    assert_eq!(lower_module(&mut ctx, &module).unwrap(), 1);
+    let source = render_module(&ctx, &module).unwrap();
+    assert!(source.contains("logic [7:0] storage [0:15];"));
+    assert!(source.contains("read_data_0 <= storage[address];"));
 }

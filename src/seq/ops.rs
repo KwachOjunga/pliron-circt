@@ -332,6 +332,13 @@ impl HLMemOp {
     pub fn result(&self, ctx: &Context) -> Value {
         self.get_operation().deref(ctx).get_result(0)
     }
+
+    /// Get the read-during-write policy.
+    pub fn read_during_write(&self, ctx: &Context) -> StringAttr {
+        self.get_attr_read_during_write(ctx)
+            .expect("seq.hlmem requires read_during_write")
+            .clone()
+    }
 }
 
 /// Synchronous one-cycle memory read.
@@ -397,6 +404,19 @@ impl HLMemReadOp {
     pub fn result(&self, ctx: &Context) -> Value {
         self.get_operation().deref(ctx).get_result(0)
     }
+
+    /// Get the clock operand.
+    pub fn clock(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+    /// Get the memory operand.
+    pub fn memory(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(1)
+    }
+    /// Get the address operand.
+    pub fn address(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(2)
+    }
 }
 
 /// Synchronous memory write.
@@ -455,6 +475,27 @@ impl HLMemWriteOp {
             0,
         );
         HLMemWriteOp { op }
+    }
+
+    /// Get the clock operand.
+    pub fn clock(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+    /// Get the memory operand.
+    pub fn memory(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(1)
+    }
+    /// Get the address operand.
+    pub fn address(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(2)
+    }
+    /// Get the data operand.
+    pub fn data(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(3)
+    }
+    /// Get the enable operand.
+    pub fn enable(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(4)
     }
 }
 

@@ -190,6 +190,145 @@ impl Verify for MemDeclOp {
     }
 }
 
+/// A synchronous SystemVerilog memory read process.
+#[pliron_op(
+    name = "sv.mem_read",
+    format,
+    interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<3>],
+    attributes = (memory_read_target: StringAttr),
+)]
+pub struct MemReadOp;
+
+impl Verify for MemReadOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        if op.get_operand(0).get_type(ctx) != ClockType::get(ctx).into() {
+            return verify_err!(op.loc(), "sv.mem_read clock must have !seq.clock type");
+        }
+        let memory = op.get_operand(1).get_type(ctx);
+        let memory_ref = memory.deref(ctx);
+        let memory = match memory_ref.downcast_ref::<crate::seq::types::MemoryType>() {
+            Some(memory) => memory,
+            None => return verify_err!(op.loc(), "sv.mem_read memory must have !seq.mem type"),
+        };
+        if memory.element_type() != op.get_result(0).get_type(ctx) {
+            return verify_err!(
+                op.loc(),
+                "sv.mem_read result must match memory element type"
+            );
+        }
+        if self
+            .get_attr_memory_read_target(ctx)
+            .expect("sv.mem_read requires memory_read_target")
+            .as_ref()
+            .is_empty()
+        {
+            return verify_err!(op.loc(), "sv.mem_read target must not be empty");
+        }
+        Ok(())
+    }
+}
+
+impl MemReadOp {
+    /// Create a one-cycle synchronous read process for a named result.
+    pub fn new(
+        ctx: &mut Context,
+        target: impl Into<StringAttr>,
+        clock: Value,
+        memory: Value,
+        address: Value,
+        result_ty: pliron::r#type::TypeHandle,
+    ) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![result_ty],
+            vec![clock, memory, address],
+            vec![],
+            0,
+        );
+        let read = MemReadOp { op };
+        read.set_attr_memory_read_target(ctx, target.into());
+        read
+    }
+
+    /// Get the registered read result.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
+/// A synchronous SystemVerilog memory write process.
+#[pliron_op(
+    name = "sv.mem_write",
+    format,
+    interfaces = [NRegionsInterface<0>, NOpdsInterface<5>],
+    attributes = (memory_write_target: StringAttr),
+)]
+pub struct MemWriteOp;
+
+impl Verify for MemWriteOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        if op.get_operand(0).get_type(ctx) != ClockType::get(ctx).into() {
+            return verify_err!(op.loc(), "sv.mem_write clock must have !seq.clock type");
+        }
+        if op.get_operand(4).get_type(ctx)
+            != pliron::builtin::types::IntegerType::get(
+                ctx,
+                1,
+                pliron::builtin::types::Signedness::Signless,
+            )
+            .into()
+        {
+            return verify_err!(op.loc(), "sv.mem_write enable must have i1 type");
+        }
+        let memory = op.get_operand(1).get_type(ctx);
+        let memory_ref = memory.deref(ctx);
+        let memory = match memory_ref.downcast_ref::<crate::seq::types::MemoryType>() {
+            Some(memory) => memory,
+            None => return verify_err!(op.loc(), "sv.mem_write memory must have !seq.mem type"),
+        };
+        if memory.element_type() != op.get_operand(3).get_type(ctx) {
+            return verify_err!(op.loc(), "sv.mem_write data must match memory element type");
+        }
+        if self
+            .get_attr_memory_write_target(ctx)
+            .expect("sv.mem_write requires memory_write_target")
+            .as_ref()
+            .is_empty()
+        {
+            return verify_err!(op.loc(), "sv.mem_write target must not be empty");
+        }
+        Ok(())
+    }
+}
+
+impl MemWriteOp {
+    /// Create an enabled synchronous write process for a named memory.
+    pub fn new(
+        ctx: &mut Context,
+        target: impl Into<StringAttr>,
+        clock: Value,
+        memory: Value,
+        address: Value,
+        data: Value,
+        enable: Value,
+    ) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![],
+            vec![clock, memory, address, data, enable],
+            vec![],
+            0,
+        );
+        let write = MemWriteOp { op };
+        write.set_attr_memory_write_target(ctx, target.into());
+        write
+    }
+}
+
 impl MemDeclOp {
     /// Declare a `!seq.mem` resource for SV memory emission.
     pub fn new(
@@ -208,6 +347,11 @@ impl MemDeclOp {
         let memory = MemDeclOp { op };
         memory.set_attr_memory_target(ctx, target.into());
         memory
+    }
+
+    /// Get the declared memory resource.
+    pub fn result(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_result(0)
     }
 }
 
@@ -410,6 +554,8 @@ pub fn register(ctx: &mut Context) {
     AlwaysCombOp::register(ctx);
     InstanceOp::register(ctx);
     MemDeclOp::register(ctx);
+    MemReadOp::register(ctx);
+    MemWriteOp::register(ctx);
     AssignOp::register(ctx);
     AlwaysFfOp::register(ctx);
     AlwaysFfNoResetOp::register(ctx);

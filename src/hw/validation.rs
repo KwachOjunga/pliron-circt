@@ -6,14 +6,18 @@
 use std::collections::HashSet;
 
 use pliron::{
-    common_traits::Verify, context::Context, linked_list::ContainsLinkedList, location::Located,
-    operation::Operation, result::Result, r#type::Typed, value::Value, verify_err,
+    builtin::op_interfaces::SymbolOpInterface, common_traits::Verify, context::Context,
+    linked_list::ContainsLinkedList, location::Located, operation::Operation, result::Result,
+    r#type::Typed, value::Value, verify_err,
 };
 
 use crate::{
     hw::ops::{InstanceOp, ModuleOp},
     seq::types::{ClockType, MemoryType, ResetType},
-    sv::ops::{AlwaysFfNoResetOp, AlwaysFfOp, AssignOp},
+    sv::ops::{
+        AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, InstanceOp as SvInstanceOp,
+        LogicDeclOp, MemDeclOp, MemReadOp, MemWriteOp,
+    },
 };
 
 /// Validate module-wide invariants after local operation verification.
@@ -51,6 +55,67 @@ pub fn validate_module(ctx: &Context, module: &ModuleOp) -> Result<()> {
                     op.loc(),
                     "sv.assign cannot emit a clock or reset value as ordinary data"
                 );
+            }
+        }
+
+        if let Some(comb) = Operation::get_op::<AlwaysCombOp>(op_ptr, ctx) {
+            let target = comb
+                .get_attr_comb_target(ctx)
+                .expect("sv.always_comb requires comb_target");
+            if !target_names.insert(target.as_ref().to_owned()) {
+                return verify_err!(
+                    op.loc(),
+                    "duplicate SV target name '{}' in module",
+                    target.as_ref()
+                );
+            }
+        }
+
+        if let Some(declaration) = Operation::get_op::<LogicDeclOp>(op_ptr, ctx) {
+            let target = declaration
+                .get_attr_logic_target(ctx)
+                .expect("sv.logic_decl requires logic_target");
+            if !target_names.insert(target.as_ref().to_owned()) {
+                return verify_err!(
+                    op.loc(),
+                    "duplicate SV target name '{}' in module",
+                    target.as_ref()
+                );
+            }
+        }
+
+        if let Some(memory) = Operation::get_op::<MemDeclOp>(op_ptr, ctx) {
+            let target = memory
+                .get_attr_memory_target(ctx)
+                .expect("sv.mem_decl requires memory_target");
+            if !target_names.insert(target.as_ref().to_owned()) {
+                return verify_err!(
+                    op.loc(),
+                    "duplicate SV target name '{}' in module",
+                    target.as_ref()
+                );
+            }
+        }
+
+        if let Some(read) = Operation::get_op::<MemReadOp>(op_ptr, ctx) {
+            let target = read
+                .get_attr_memory_read_target(ctx)
+                .expect("sv.mem_read requires memory_read_target");
+            if !target_names.insert(target.as_ref().to_owned()) {
+                return verify_err!(
+                    op.loc(),
+                    "duplicate SV target name '{}' in module",
+                    target.as_ref()
+                );
+            }
+        }
+
+        if let Some(write) = Operation::get_op::<MemWriteOp>(op_ptr, ctx) {
+            let target = write
+                .get_attr_memory_write_target(ctx)
+                .expect("sv.mem_write requires memory_write_target");
+            if !target_names.contains(target.as_ref()) {
+                target_names.insert(target.as_ref().to_owned());
             }
         }
 
@@ -97,6 +162,19 @@ pub fn validate_module(ctx: &Context, module: &ModuleOp) -> Result<()> {
             }
         }
 
+        if let Some(instance) = Operation::get_op::<SvInstanceOp>(op_ptr, ctx) {
+            let instance_name = instance
+                .get_attr_sv_instance_name(ctx)
+                .expect("sv.instance requires instance name");
+            if !instance_names.insert(instance_name.as_ref().to_owned()) {
+                return verify_err!(
+                    op.loc(),
+                    "duplicate instance name '{}' in module",
+                    instance_name.as_ref()
+                );
+            }
+        }
+
         if Operation::is_op::<crate::seq::ops::HLMemWriteOp>(op_ptr, ctx) {
             let memory_type = op.get_operand(1).get_type(ctx);
             if memory_type
@@ -116,5 +194,44 @@ pub fn validate_module(ctx: &Context, module: &ModuleOp) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// Validate a collection of modules and resolve every local instance target.
+///
+/// This is intentionally separate from `validate_module`: a single module
+/// cannot prove that an instance's referenced symbol exists elsewhere.
+pub fn validate_modules(ctx: &Context, modules: &[ModuleOp]) -> Result<()> {
+    let symbols: HashSet<_> = modules
+        .iter()
+        .map(|module| module.get_symbol_name(ctx))
+        .collect();
+    for module in modules {
+        validate_module(ctx, module)?;
+        for op_ptr in module.get_body(ctx).deref(ctx).iter(ctx) {
+            if let Some(instance) = Operation::get_op::<InstanceOp>(op_ptr, ctx) {
+                if !symbols.contains(&instance.module_name(ctx).into()) {
+                    return verify_err!(
+                        op_ptr.deref(ctx).loc(),
+                        "unresolved hw.instance module reference"
+                    );
+                }
+            }
+            if let Some(instance) = Operation::get_op::<SvInstanceOp>(op_ptr, ctx) {
+                let name = instance
+                    .get_attr_sv_instance_module(ctx)
+                    .expect("sv.instance requires module name");
+                if !symbols
+                    .iter()
+                    .any(|symbol| symbol.as_ref() == name.as_ref())
+                {
+                    return verify_err!(
+                        op_ptr.deref(ctx).loc(),
+                        "unresolved sv.instance module reference"
+                    );
+                }
+            }
+        }
+    }
     Ok(())
 }

@@ -10,19 +10,25 @@ use pliron::{
     common_traits::Named,
     context::Context,
     linked_list::ContainsLinkedList,
+    location::Located,
     op::{Op, verify_op},
     operation::Operation,
     printable::Printable,
     result::Result,
     r#type::Typed,
     value::Value,
+    verify_err,
 };
 
 use crate::{
     hw::ops::ModuleOp,
-    seq::types::{ClockType, MemoryType, ResetType},
+    seq::{
+        ops::{CompRegOp, FirRegOp, HLMemOp, HLMemReadOp, HLMemWriteOp},
+        types::{ClockType, MemoryType, ResetType},
+    },
     sv::ops::{
         AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, InstanceOp, LogicDeclOp, MemDeclOp,
+        MemReadOp, MemWriteOp,
     },
 };
 
@@ -65,6 +71,19 @@ fn sv_decl_type(ctx: &Context, value: Value, kind: &str) -> String {
     } else {
         format!("{} {}", kind, sv_type(ctx, value))
     }
+}
+
+fn memory_name(ctx: &Context, value: Value) -> String {
+    if let Some(defining_op) = value.defining_op() {
+        if let Some(memory) = Operation::get_op::<MemDeclOp>(defining_op, ctx) {
+            return memory
+                .get_attr_memory_target(ctx)
+                .expect("verified memory target")
+                .as_ref()
+                .to_owned();
+        }
+    }
+    value_name(ctx, value)
 }
 
 fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<String> {
@@ -132,6 +151,29 @@ fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<S
                 .expect("verified memory target")
                 .as_ref(),
             memory_type.depth() - 1
+        ));
+    }
+    if let Some(read) = Operation::get_op::<MemReadOp>(op_ptr, ctx) {
+        let op = read.get_operation().deref(ctx);
+        return Some(format!(
+            "always_ff @(posedge {}) begin\n  {} <= {}[{}];\nend",
+            value_name(ctx, op.get_operand(0)),
+            read.get_attr_memory_read_target(ctx)
+                .expect("verified read target")
+                .as_ref(),
+            memory_name(ctx, op.get_operand(1)),
+            value_name(ctx, op.get_operand(2))
+        ));
+    }
+    if let Some(write) = Operation::get_op::<MemWriteOp>(op_ptr, ctx) {
+        let op = write.get_operation().deref(ctx);
+        return Some(format!(
+            "always_ff @(posedge {}) begin\n  if ({})\n    {}[{}] <= {};\nend",
+            value_name(ctx, op.get_operand(0)),
+            value_name(ctx, op.get_operand(4)),
+            memory_name(ctx, op.get_operand(1)),
+            value_name(ctx, op.get_operand(2)),
+            value_name(ctx, op.get_operand(3))
         ));
     }
     if let Some(always) = Operation::get_op::<AlwaysFfNoResetOp>(op_ptr, ctx) {
@@ -252,9 +294,36 @@ pub fn render_module(ctx: &Context, module: &ModuleOp) -> Result<String> {
                     .expect("verified always_ff_no_reset target")
                     .as_ref()
             ));
+        } else if let Some(read) = Operation::get_op::<MemReadOp>(op_ptr, ctx) {
+            declarations.push(format!(
+                "{} {};",
+                sv_decl_type(ctx, read.result(ctx), "logic"),
+                read.get_attr_memory_read_target(ctx)
+                    .expect("verified read target")
+                    .as_ref()
+            ));
+        } else if let Some(comb) = Operation::get_op::<AlwaysCombOp>(op_ptr, ctx) {
+            declarations.push(format!(
+                "{} {};",
+                sv_decl_type(ctx, comb.get_operation().deref(ctx).get_operand(0), "logic"),
+                comb.get_attr_comb_target(ctx)
+                    .expect("verified comb target")
+                    .as_ref()
+            ));
         }
         if let Some(statement) = render_op(ctx, op_ptr) {
             statements.push(statement);
+        } else if !Operation::is_op::<crate::hw::ops::OutputOp>(op_ptr, ctx)
+            && !Operation::is_op::<CompRegOp>(op_ptr, ctx)
+            && !Operation::is_op::<FirRegOp>(op_ptr, ctx)
+            && !Operation::is_op::<HLMemOp>(op_ptr, ctx)
+            && !Operation::is_op::<HLMemReadOp>(op_ptr, ctx)
+            && !Operation::is_op::<HLMemWriteOp>(op_ptr, ctx)
+        {
+            return verify_err!(
+                op_ptr.deref(ctx).loc(),
+                "SV printer does not support operation in module"
+            );
         }
     }
     for declaration in declarations {
