@@ -130,6 +130,63 @@ impl Verify for AlwaysFfOp {
     }
 }
 
+/// A reset-free SystemVerilog `always_ff` assignment for a plain D register.
+///
+/// This operation is the emission form for `seq.compreg`; it deliberately has
+/// no reset operands or reset attributes so lowering cannot invent reset
+/// behavior that was absent from the source IR.
+#[pliron_op(
+    name = "sv.always_ff_no_reset",
+    format,
+    interfaces = [NRegionsInterface<0>, NOpdsInterface<2>],
+    attributes = (ff_nr_target: StringAttr),
+)]
+pub struct AlwaysFfNoResetOp;
+
+impl Verify for AlwaysFfNoResetOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let clock_ty: pliron::r#type::TypeHandle = ClockType::get(ctx).into();
+        if op.get_operand(0).get_type(ctx) != clock_ty {
+            return verify_err!(
+                op.loc(),
+                "sv.always_ff_no_reset clock must have !seq.clock type"
+            );
+        }
+        if self
+            .get_attr_ff_nr_target(ctx)
+            .expect("sv.always_ff_no_reset requires ff_nr_target")
+            .as_ref()
+            .is_empty()
+        {
+            return verify_err!(op.loc(), "sv.always_ff_no_reset target must not be empty");
+        }
+        Ok(())
+    }
+}
+
+impl AlwaysFfNoResetOp {
+    /// Create a reset-free `always_ff` assignment for a named target.
+    pub fn new(
+        ctx: &mut Context,
+        target: impl Into<StringAttr>,
+        clock: Value,
+        input: Value,
+    ) -> Self {
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![],
+            vec![clock, input],
+            vec![],
+            0,
+        );
+        let always = AlwaysFfNoResetOp { op };
+        always.set_attr_ff_nr_target(ctx, target.into());
+        always
+    }
+}
+
 impl AlwaysFfOp {
     /// Create a reset-aware `always_ff` assignment for a named target.
     pub fn new(
@@ -162,4 +219,5 @@ impl AlwaysFfOp {
 pub fn register(ctx: &mut Context) {
     AssignOp::register(ctx);
     AlwaysFfOp::register(ctx);
+    AlwaysFfNoResetOp::register(ctx);
 }

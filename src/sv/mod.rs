@@ -7,7 +7,10 @@
 //! combinational, and sequential analyses have made the relevant contracts
 //! explicit.
 
+pub mod canonicalization;
+pub mod lowering;
 pub mod ops;
+pub mod printer;
 
 use pliron::context::Context;
 

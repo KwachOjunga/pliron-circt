@@ -210,10 +210,10 @@ a different interpretation.
 
 ## 10. No automatic lowering or canonicalization is implied
 
-Defining operations and registering them does not create a conversion pass,
-rewriter, canonicalizer, simulator, or SystemVerilog printer. The current
-repository has operation constructors, local verifiers, and documentation;
-it does not yet have a complete lowering pipeline.
+Defining operations and registering them does not create a complete conversion
+pass, canonicalizer, simulator, or SystemVerilog printer. The repository now
+has typed SV lowering helpers and one rewriter-based canonicalization pattern,
+but it still does not have a complete lowering driver or source emitter.
 
 ### Hardware consequence
 
@@ -225,6 +225,11 @@ claiming that its current syntax is executable. In particular:
 - `seq.hlmem` retains memory identity and collision policy until memory
   lowering;
 - `sv` retains emission intent but is not itself emitted source.
+
+The implemented helpers are intentionally narrow: they lower individual
+verified values or register operations, and the canonicalizer removes only a
+provably redundant assignment. A module-level pass must still decide naming,
+ordering, declarations, memory legalization, and source emission.
 
 ## 11. What the current rules permit
 

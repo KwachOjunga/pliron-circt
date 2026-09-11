@@ -125,10 +125,9 @@ always_ff @(posedge clk) begin
 end
 ```
 
-The current SV slice does not yet provide a no-reset `always_ff` operation, so
-this lowering is a planned extension rather than an implemented conversion.
-This is an intentional example of a missing conversion contract: forcing
-`seq.compreg` into reset-bearing `sv.always_ff` would create false semantics.
+The implementation provides `sv.always_ff_no_reset` for this exact case. The
+lowering helper `sv::lowering::lower_compreg` creates that operation and keeps
+the source clock and input values intact. It does not add a reset signal.
 
 ## 5. Memory transformations
 
@@ -225,7 +224,10 @@ Canonicalization must preserve observable emission semantics:
 - Normalize reset polarity only together with the reset signal and emitted
   event-control polarity.
 
-The repository does not yet implement these rewrite patterns. The rules are
+The implementation provides `sv::canonicalization::eliminate_redundant_assign`.
+It recognizes an assignment whose target is already the source value name,
+replaces all result uses with the source value through pliron's `Rewriter`,
+and erases the redundant operation. Other rules in this section remain
 specification-level constraints for future canonicalizers.
 
 ## 9. Verification after transformation
@@ -248,17 +250,24 @@ conversion error when a target contract cannot be represented.
 Implemented today:
 
 - local `sv.assign` and `sv.always_ff` operation construction;
+- reset-free `sv.always_ff_no_reset` for plain D-register emission;
 - local type, target-name, and reset-policy verification;
+- deterministic source rendering for the implemented SV operations;
+- typed lowering helpers for `comb` values, `seq.compreg`, and `seq.firreg`;
+- redundant-assignment canonicalization through `Rewriter`;
+- module-local validation for SV targets, instance names, clock/reset
+  assignment boundaries, and same-address memory write conflicts;
 - documentation of semantic source-to-target mappings.
 
 Not implemented yet:
 
-- a conversion pass from `hw`/`comb`/`seq` to `sv`;
-- a SystemVerilog source printer;
+- a module-wide conversion driver from `hw`/`comb`/`seq` to `sv` that walks
+  every source operation and inserts the generated operations;
 - full SV expression, declaration, module, and instance operations;
 - memory lowering with collision-policy legalization;
-- module-level target uniqueness and driver analysis;
-- canonicalization patterns and equivalence tests.
+- cross-module symbol resolution and complete driver analysis;
+- clock-domain crossing analysis and full memory-port conflict analysis;
+- broader canonicalization patterns and equivalence tests.
 
 These omissions are intentional and should be tracked as compiler passes, not
 hidden by adding more free-form attributes to the current operations.

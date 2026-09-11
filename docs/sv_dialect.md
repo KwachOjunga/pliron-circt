@@ -97,9 +97,11 @@ hw + comb + seq
 - continuous versus sequential assignment kind;
 - target names and structural identity where externally observable.
 
-The current implementation provides emission operations and local verifiers,
-but not yet a conversion pass, canonicalization patterns, or a SystemVerilog
-printer. Those are the next implementation boundary.
+The current implementation provides emission operations, local verifiers, a
+deterministic printer for the implemented operation surface, lowering helpers,
+and a redundant-assignment canonicalization helper. A full conversion pass,
+broader canonicalization framework, and complete SystemVerilog AST remain
+future extensions.
 
 Detailed transformation rules are documented in
 [`sv_transformations.md`](sv_transformations.md). The practical constraints
