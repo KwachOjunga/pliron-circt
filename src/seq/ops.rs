@@ -105,6 +105,16 @@ impl CompRegOp {
     pub fn result(&self, ctx: &Context) -> Value {
         self.get_operation().deref(ctx).get_result(0)
     }
+
+    /// Get the clock input.
+    pub fn clock(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+
+    /// Get the next-state input.
+    pub fn input(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(1)
+    }
 }
 
 /// A register with explicit reset behavior.
@@ -177,6 +187,41 @@ impl FirRegOp {
     /// Get the current register value.
     pub fn result(&self, ctx: &Context) -> Value {
         self.get_operation().deref(ctx).get_result(0)
+    }
+
+    /// Get the register clock.
+    pub fn clock(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(0)
+    }
+
+    /// Get the next-state input.
+    pub fn input(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(1)
+    }
+
+    /// Get the reset signal.
+    pub fn reset(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(2)
+    }
+
+    /// Get the value loaded by reset.
+    pub fn reset_value(&self, ctx: &Context) -> Value {
+        self.get_operation().deref(ctx).get_operand(3)
+    }
+
+    /// Whether reset is asynchronous.
+    pub fn is_async_reset(&self, ctx: &Context) -> bool {
+        self.get_attr_is_async_reset(ctx)
+            .expect("seq.firreg requires is_async_reset")
+            .clone()
+            .into()
+    }
+
+    /// Get the reset polarity attribute.
+    pub fn reset_polarity(&self, ctx: &Context) -> StringAttr {
+        self.get_attr_reset_polarity(ctx)
+            .expect("seq.firreg requires reset_polarity")
+            .clone()
     }
 }
 
