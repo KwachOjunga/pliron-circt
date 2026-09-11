@@ -8,13 +8,59 @@ use pliron::{
         attributes::{BoolAttr, StringAttr},
         op_interfaces::{NOpdsInterface, NRegionsInterface, OneResultInterface},
     },
+    common_traits::Verify,
     context::Context,
     derive::pliron_op,
+    location::Located,
     op::Op,
     operation::Operation,
-    r#type::TypeHandle,
+    result::Result,
+    r#type::{TypeHandle, Typed},
     value::Value,
+    verify_err,
 };
+
+use super::types::{ClockType, MemoryType, ResetType};
+
+fn verify_clock(op: &Operation, ctx: &Context, index: usize) -> Result<()> {
+    let expected: TypeHandle = ClockType::get(ctx).into();
+    if op.get_operand(index).get_type(ctx) != expected {
+        return verify_err!(op.loc(), "seq operand {} must have !seq.clock type", index);
+    }
+    Ok(())
+}
+
+fn verify_reset(op: &Operation, ctx: &Context, index: usize) -> Result<()> {
+    let expected: TypeHandle = ResetType::get(ctx).into();
+    if op.get_operand(index).get_type(ctx) != expected {
+        return verify_err!(op.loc(), "seq operand {} must have !seq.reset type", index);
+    }
+    Ok(())
+}
+
+fn verify_i1(op: &Operation, ctx: &Context, index: usize) -> Result<()> {
+    let expected = pliron::builtin::types::IntegerType::get(
+        ctx,
+        1,
+        pliron::builtin::types::Signedness::Signless,
+    );
+    if op.get_operand(index).get_type(ctx) != expected.into() {
+        return verify_err!(op.loc(), "seq operand {} must have i1 type", index);
+    }
+    Ok(())
+}
+
+fn verify_same_type(op: &Operation, ctx: &Context, lhs: usize, rhs: usize) -> Result<()> {
+    if op.get_operand(lhs).get_type(ctx) != op.get_operand(rhs).get_type(ctx) {
+        return verify_err!(
+            op.loc(),
+            "seq operands {} and {} must have the same type",
+            lhs,
+            rhs
+        );
+    }
+    Ok(())
+}
 
 /// A register sampled on the active edge of `clock`.
 ///
@@ -24,9 +70,22 @@ use pliron::{
     name = "seq.compreg",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<2>],
-    verifier = "succ",
 )]
 pub struct CompRegOp;
+
+impl Verify for CompRegOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        verify_clock(&op, ctx, 0)?;
+        if op.get_operand(1).get_type(ctx) != op.get_result(0).get_type(ctx) {
+            return verify_err!(
+                op.loc(),
+                "seq.compreg input and result must have the same type"
+            );
+        }
+        Ok(())
+    }
+}
 
 impl CompRegOp {
     /// Create a register with operands `(clock, input)` and result `result_ty`.
@@ -60,9 +119,34 @@ impl CompRegOp {
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<4>],
     attributes = (is_async_reset: BoolAttr, reset_polarity: StringAttr),
-    verifier = "succ",
 )]
 pub struct FirRegOp;
+
+impl Verify for FirRegOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        verify_clock(&op, ctx, 0)?;
+        verify_reset(&op, ctx, 2)?;
+        verify_same_type(&op, ctx, 1, 3)?;
+        if op.get_operand(1).get_type(ctx) != op.get_result(0).get_type(ctx) {
+            return verify_err!(
+                op.loc(),
+                "seq.firreg input and result must have the same type"
+            );
+        }
+        let polarity_attr = self
+            .get_attr_reset_polarity(ctx)
+            .expect("seq.firreg requires reset_polarity");
+        let polarity = polarity_attr.as_ref();
+        if polarity != "active_high" && polarity != "active_low" {
+            return verify_err!(
+                op.loc(),
+                "seq.firreg reset_polarity must be active_high or active_low"
+            );
+        }
+        Ok(())
+    }
+}
 
 impl FirRegOp {
     /// Create a resettable register with explicit reset policy attributes.
@@ -104,9 +188,20 @@ impl FirRegOp {
     name = "seq.clock_gate",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<2>],
-    verifier = "succ",
 )]
 pub struct ClockGateOp;
+
+impl Verify for ClockGateOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        verify_clock(&op, ctx, 0)?;
+        verify_i1(&op, ctx, 1)?;
+        if op.get_result(0).get_type(ctx) != op.get_operand(0).get_type(ctx) {
+            return verify_err!(op.loc(), "seq.clock_gate result must have !seq.clock type");
+        }
+        Ok(())
+    }
+}
 
 impl ClockGateOp {
     /// Create a gated clock from `(clock, enable)`.
@@ -138,9 +233,34 @@ impl ClockGateOp {
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<0>],
     attributes = (read_during_write: StringAttr),
-    verifier = "succ",
 )]
 pub struct HLMemOp;
+
+impl Verify for HLMemOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let memory = op
+            .get_result(0)
+            .get_type(ctx)
+            .deref(ctx)
+            .downcast_ref::<MemoryType>()
+            .is_some();
+        if !memory {
+            return verify_err!(op.loc(), "seq.hlmem result must have !seq.mem type");
+        }
+        let policy_attr = self
+            .get_attr_read_during_write(ctx)
+            .expect("seq.hlmem requires read_during_write");
+        let policy = policy_attr.as_ref();
+        if policy != "read-first" && policy != "write-first" && policy != "undefined" {
+            return verify_err!(
+                op.loc(),
+                "seq.hlmem read_during_write must be read-first, write-first, or undefined"
+            );
+        }
+        Ok(())
+    }
+}
 
 impl HLMemOp {
     /// Create a memory with a read-during-write policy of `read-first`,
@@ -177,12 +297,39 @@ impl HLMemOp {
     name = "seq.hlmem_read",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<3>],
-    verifier = "succ",
 )]
 pub struct HLMemReadOp;
 
+impl Verify for HLMemReadOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        verify_clock(&op, ctx, 0)?;
+        if op
+            .get_operand(1)
+            .get_type(ctx)
+            .deref(ctx)
+            .downcast_ref::<MemoryType>()
+            .is_none()
+        {
+            return verify_err!(
+                op.loc(),
+                "seq.hlmem_read memory operand must have !seq.mem type"
+            );
+        }
+        let memory_type = op.get_operand(1).get_type(ctx);
+        let memory_type_ref = memory_type.deref(ctx);
+        let memory = memory_type_ref.downcast_ref::<MemoryType>().unwrap();
+        if memory.element_type() != op.get_result(0).get_type(ctx) {
+            return verify_err!(
+                op.loc(),
+                "seq.hlmem_read result must match the memory element type"
+            );
+        }
+        Ok(())
+    }
+}
+
 impl HLMemReadOp {
-    /// Create a synchronous read producing `element_ty`.
     pub fn new(
         ctx: &mut Context,
         clock: Value,
@@ -215,9 +362,34 @@ impl HLMemReadOp {
     name = "seq.hlmem_write",
     format,
     interfaces = [NRegionsInterface<0>, NOpdsInterface<5>],
-    verifier = "succ",
 )]
 pub struct HLMemWriteOp;
+
+impl Verify for HLMemWriteOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        verify_clock(&op, ctx, 0)?;
+        verify_i1(&op, ctx, 4)?;
+        let memory_type = op.get_operand(1).get_type(ctx);
+        let memory_type_ref = memory_type.deref(ctx);
+        let memory = match memory_type_ref.downcast_ref::<MemoryType>() {
+            Some(memory) => memory,
+            None => {
+                return verify_err!(
+                    op.loc(),
+                    "seq.hlmem_write memory operand must have !seq.mem type"
+                );
+            }
+        };
+        if memory.element_type() != op.get_operand(3).get_type(ctx) {
+            return verify_err!(
+                op.loc(),
+                "seq.hlmem_write data must match the memory element type"
+            );
+        }
+        Ok(())
+    }
+}
 
 impl HLMemWriteOp {
     /// Create an enabled synchronous write.
