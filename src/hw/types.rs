@@ -10,6 +10,7 @@
 //! - [`StructType`]: Hardware record / struct of named fields (`hw.struct<...>`).
 //! - [`UnionType`]: Hardware union of named fields sharing storage (`hw.union<...>`).
 //! - [`TypeAliasType`]: Symbolic type alias referencing a `hw.typedecl` (`hw.typealias<@symbol, inner_type>`).
+//! - [`EnumType`]: Named, explicitly encoded finite hardware type (`hw.enum<...>`).
 //! - [`ModuleType`]: First-class module interface signature (`hw.module_type<...>`).
 
 use pliron::{
@@ -178,6 +179,61 @@ pub struct TypeAliasType {
     inner_type: TypeHandle,
 }
 
+/// A named enum variant and its encoded value.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[format("$name `=` $value")]
+pub struct EnumVariant {
+    pub name: Identifier,
+    pub value: u64,
+}
+
+impl EnumVariant {
+    /// Create a variant with an explicit underlying integer encoding.
+    pub fn new(name: Identifier, value: u64) -> Self {
+        Self { name, value }
+    }
+}
+
+/// Named finite hardware type with explicit integer encodings: `hw.enum<...>`.
+///
+/// The underlying type determines the storage width. Variant encodings are
+/// part of the type contract and must fit in that width; an enum value is not
+/// interchangeable with an arbitrary integer without an explicit conversion.
+#[pliron_type(
+    name = "hw.enum",
+    format = "`<` $name `:` $underlying_type `,` vec($variants, CharSpace(`,`)) `>`",
+    verifier = "succ",
+    generate_get = true
+)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct EnumType {
+    name: Identifier,
+    underlying_type: TypeHandle,
+    variants: Vec<EnumVariant>,
+}
+
+impl EnumType {
+    /// Symbolic name of this enum.
+    pub fn name(&self) -> &Identifier {
+        &self.name
+    }
+
+    /// Integer type used to encode enum values.
+    pub fn underlying_type(&self) -> TypeHandle {
+        self.underlying_type
+    }
+
+    /// All variants in declaration order.
+    pub fn variants(&self) -> &[EnumVariant] {
+        &self.variants
+    }
+
+    /// Find a variant by name.
+    pub fn get_variant(&self, name: &Identifier) -> Option<&EnumVariant> {
+        self.variants.iter().find(|variant| &variant.name == name)
+    }
+}
+
 impl TypeAliasType {
     /// Identifier symbol of the aliased type.
     pub fn symbol(&self) -> &Identifier {
@@ -233,6 +289,7 @@ pub fn register(ctx: &mut Context) {
     StructType::register(ctx);
     UnionType::register(ctx);
     TypeAliasType::register(ctx);
+    EnumType::register(ctx);
     ModuleType::register(ctx);
 }
 

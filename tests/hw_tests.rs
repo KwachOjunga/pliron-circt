@@ -25,7 +25,8 @@ use pliron_hw::{
             StructInjectOp, UnionCreateOp, UnionExtractOp, WireOp,
         },
         types::{
-            ArrayType, InoutType, IntType, StructField, StructType, TypeAliasType, UnionType,
+            ArrayType, EnumType, EnumVariant, InoutType, IntType, StructField, StructType,
+            TypeAliasType, UnionType,
         },
     },
     register_all,
@@ -312,6 +313,29 @@ fn test_hw_native_types() {
 
     let ir_alias = hw_alias.disp(&ctx).to_string();
     assert!(ir_alias.contains("hw.typealias") && ir_alias.contains("my_custom_bus"));
+}
+
+#[test]
+fn test_hw_enum_type() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+
+    let i2: TypeHandle = IntegerType::get(&mut ctx, 2, Signedness::Signless).into();
+    let enum_name: Identifier = "Opcode".try_into().unwrap();
+    let add_name: Identifier = "add".try_into().unwrap();
+    let sub_name: Identifier = "sub".try_into().unwrap();
+    let enum_ty = EnumType::get(
+        &mut ctx,
+        enum_name,
+        i2,
+        vec![EnumVariant::new(add_name.clone(), 0), EnumVariant::new(sub_name, 1)],
+    );
+
+    let enum_ref = enum_ty.deref(&ctx);
+    assert_eq!(enum_ref.underlying_type(), i2);
+    assert_eq!(enum_ref.get_variant(&add_name).unwrap().value, 0);
+    assert_eq!(enum_ref.variants().len(), 2);
+    assert!(enum_ref.disp(&ctx).to_string().contains("Opcode"));
 }
 
 #[test]
