@@ -11,10 +11,11 @@ use pliron::{
         attributes::{IntegerAttr, StringAttr},
         op_interfaces::{NOpdsInterface, NRegionsInterface, OneResultInterface},
     },
+    common_traits::Verify,
     context::Context,
     derive::{op_interface_impl, pliron_op},
     location::Located,
-    op::{Op, Verify},
+    op::Op,
     operation::Operation,
     opts::dce::SideEffects,
     printable::Printable,
@@ -166,7 +167,7 @@ fn verify_reduction(op: &Operation, ctx: &Context, op_name: &str) -> Result<()> 
 }
 
 fn verify_variadic_bitwise(op: &Operation, ctx: &Context, op_name: &str) -> Result<()> {
-    if op.num_operands() == 0 {
+    if op.get_num_operands() == 0 {
         return verify_err!(
             op.loc(),
             "{} requires at least one operand, found 0",
@@ -179,7 +180,7 @@ fn verify_variadic_bitwise(op: &Operation, ctx: &Context, op_name: &str) -> Resu
         op.get_operand(0).get_type(ctx),
         &format!("{} operand 0", op_name),
     )?;
-    for i in 1..op.num_operands() {
+    for i in 1..op.get_num_operands() {
         let opd_w = verify_integer_type(
             op,
             ctx,
@@ -243,14 +244,27 @@ impl SideEffects for AddOp {
 
 impl CombOpExt for AddOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl AddOp {
     /// Create a new `comb.add`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![lhs, rhs], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![lhs, rhs],
+            vec![],
+            0,
+        );
         AddOp { op }
     }
 
@@ -294,14 +308,27 @@ impl SideEffects for SubOp {
 
 impl CombOpExt for SubOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl SubOp {
     /// Create a new `comb.sub`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![lhs, rhs], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![lhs, rhs],
+            vec![],
+            0,
+        );
         SubOp { op }
     }
 
@@ -345,14 +372,27 @@ impl SideEffects for MulOp {
 
 impl CombOpExt for MulOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl MulOp {
     /// Create a new `comb.mul`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![lhs, rhs], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![lhs, rhs],
+            vec![],
+            0,
+        );
         MulOp { op }
     }
 
@@ -396,14 +436,27 @@ impl SideEffects for DivUOp {
 
 impl CombOpExt for DivUOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl DivUOp {
     /// Create a new `comb.divu`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![lhs, rhs], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![lhs, rhs],
+            vec![],
+            0,
+        );
         DivUOp { op }
     }
 
@@ -447,7 +500,13 @@ impl SideEffects for DivSOp {
 
 impl CombOpExt for DivSOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
     fn is_signed(&self) -> bool {
         true
@@ -457,7 +516,14 @@ impl CombOpExt for DivSOp {
 impl DivSOp {
     /// Create a new `comb.divs`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![lhs, rhs], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![lhs, rhs],
+            vec![],
+            0,
+        );
         DivSOp { op }
     }
 
@@ -501,14 +567,27 @@ impl SideEffects for ModUOp {
 
 impl CombOpExt for ModUOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl ModUOp {
     /// Create a new `comb.modu`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![lhs, rhs], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![lhs, rhs],
+            vec![],
+            0,
+        );
         ModUOp { op }
     }
 
@@ -552,7 +631,13 @@ impl SideEffects for ModSOp {
 
 impl CombOpExt for ModSOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
     fn is_signed(&self) -> bool {
         true
@@ -562,7 +647,14 @@ impl CombOpExt for ModSOp {
 impl ModSOp {
     /// Create a new `comb.mods`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![lhs, rhs], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![lhs, rhs],
+            vec![],
+            0,
+        );
         ModSOp { op }
     }
 
@@ -606,14 +698,27 @@ impl SideEffects for ShlOp {
 
 impl CombOpExt for ShlOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl ShlOp {
     /// Create a new `comb.shl`.
     pub fn new(ctx: &mut Context, val: Value, shift: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![val, shift], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![val, shift],
+            vec![],
+            0,
+        );
         ShlOp { op }
     }
 
@@ -657,14 +762,27 @@ impl SideEffects for ShrUOp {
 
 impl CombOpExt for ShrUOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl ShrUOp {
     /// Create a new `comb.shru`.
     pub fn new(ctx: &mut Context, val: Value, shift: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![val, shift], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![val, shift],
+            vec![],
+            0,
+        );
         ShrUOp { op }
     }
 
@@ -708,7 +826,13 @@ impl SideEffects for ShrSOp {
 
 impl CombOpExt for ShrSOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
     fn is_signed(&self) -> bool {
         true
@@ -718,7 +842,14 @@ impl CombOpExt for ShrSOp {
 impl ShrSOp {
     /// Create a new `comb.shrs`.
     pub fn new(ctx: &mut Context, val: Value, shift: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![val, shift], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![val, shift],
+            vec![],
+            0,
+        );
         ShrSOp { op }
     }
 
@@ -766,14 +897,27 @@ impl SideEffects for AndOp {
 
 impl CombOpExt for AndOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl AndOp {
     /// Create a new `comb.and`.
     pub fn new(ctx: &mut Context, inputs: Vec<Value>, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], inputs, vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            inputs,
+            vec![],
+            0,
+        );
         AndOp { op }
     }
 
@@ -812,14 +956,27 @@ impl SideEffects for OrOp {
 
 impl CombOpExt for OrOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl OrOp {
     /// Create a new `comb.or`.
     pub fn new(ctx: &mut Context, inputs: Vec<Value>, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], inputs, vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            inputs,
+            vec![],
+            0,
+        );
         OrOp { op }
     }
 
@@ -858,14 +1015,27 @@ impl SideEffects for XorOp {
 
 impl CombOpExt for XorOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl XorOp {
     /// Create a new `comb.xor`.
     pub fn new(ctx: &mut Context, inputs: Vec<Value>, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], inputs, vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            inputs,
+            vec![],
+            0,
+        );
         XorOp { op }
     }
 
@@ -904,14 +1074,27 @@ impl SideEffects for NotOp {
 
 impl CombOpExt for NotOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl NotOp {
     /// Create a new `comb.not`.
     pub fn new(ctx: &mut Context, val: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![val], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![val],
+            vec![],
+            0,
+        );
         NotOp { op }
     }
 
@@ -950,14 +1133,27 @@ impl SideEffects for NegOp {
 
 impl CombOpExt for NegOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl NegOp {
     /// Create a new `comb.neg`.
     pub fn new(ctx: &mut Context, val: Value, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![val], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![val],
+            vec![],
+            0,
+        );
         NegOp { op }
     }
 
@@ -1003,7 +1199,14 @@ impl CombOpExt for AnyOp {
 impl AnyOp {
     /// Create a new `comb.any`, producing one for any set input bit.
     pub fn new(ctx: &mut Context, val: Value, i1_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![i1_ty], vec![val], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![i1_ty],
+            vec![val],
+            vec![],
+            0,
+        );
         AnyOp { op }
     }
 
@@ -1049,7 +1252,14 @@ impl CombOpExt for AllOp {
 impl AllOp {
     /// Create a new `comb.all`, producing one only when every input bit is set.
     pub fn new(ctx: &mut Context, val: Value, i1_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![i1_ty], vec![val], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![i1_ty],
+            vec![val],
+            vec![],
+            0,
+        );
         AllOp { op }
     }
 
@@ -1079,7 +1289,12 @@ pub struct MuxOp;
 impl Verify for MuxOp {
     fn verify(&self, ctx: &Context) -> Result<()> {
         let op = self.get_operation().deref(ctx);
-        verify_i1(&op, ctx, op.get_operand(0).get_type(ctx), "comb.mux condition")?;
+        verify_i1(
+            &op,
+            ctx,
+            op.get_operand(0).get_type(ctx),
+            "comb.mux condition",
+        )?;
         let true_ty = op.get_operand(1).get_type(ctx);
         let false_ty = op.get_operand(2).get_type(ctx);
         let res_ty = op.get_result(0).get_type(ctx);
@@ -1112,7 +1327,13 @@ impl SideEffects for MuxOp {
 
 impl CombOpExt for MuxOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
@@ -1120,7 +1341,13 @@ impl MuxOp {
     /// Create a new `comb.mux`.
     ///
     /// Semantics: `cond ? true_val : false_val`.
-    pub fn new(ctx: &mut Context, cond: Value, true_val: Value, false_val: Value, res_ty: TypeHandle) -> Self {
+    pub fn new(
+        ctx: &mut Context,
+        cond: Value,
+        true_val: Value,
+        false_val: Value,
+        res_ty: TypeHandle,
+    ) -> Self {
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -1165,22 +1392,20 @@ pub struct ICmpOp;
 impl Verify for ICmpOp {
     fn verify(&self, ctx: &Context) -> Result<()> {
         let op = self.get_operation().deref(ctx);
-        let pred_attr = self.get_attr_predicate(ctx).ok_or_else(|| {
-            pliron::result::Error::VerificationError {
-                loc: op.loc(),
-                err: "comb.icmp missing required attribute predicate".to_string(),
-            }
-        })?;
+        let pred_attr = self
+            .get_attr_predicate(ctx)
+            .ok_or_else(|| -> Result<()> {
+                verify_err!(op.loc(), "comb.icmp missing required attribute predicate",)
+            })
+            .unwrap();
         let pred_str = pred_attr.as_ref();
         if ICmpPredicate::from_str(pred_str).is_none() {
-            return verify_err!(
-                op.loc(),
-                "comb.icmp unknown predicate '{}'",
-                pred_str
-            );
+            return verify_err!(op.loc(), "comb.icmp unknown predicate '{}'", pred_str);
         }
-        let lhs_w = verify_integer_type(&op, ctx, op.get_operand(0).get_type(ctx), "comb.icmp lhs")?;
-        let rhs_w = verify_integer_type(&op, ctx, op.get_operand(1).get_type(ctx), "comb.icmp rhs")?;
+        let lhs_w =
+            verify_integer_type(&op, ctx, op.get_operand(0).get_type(ctx), "comb.icmp lhs")?;
+        let rhs_w =
+            verify_integer_type(&op, ctx, op.get_operand(1).get_type(ctx), "comb.icmp rhs")?;
         if lhs_w != rhs_w {
             return verify_err!(
                 op.loc(),
@@ -1219,7 +1444,14 @@ impl ICmpOp {
         rhs: Value,
         i1_ty: TypeHandle,
     ) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![i1_ty], vec![lhs, rhs], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![i1_ty],
+            vec![lhs, rhs],
+            vec![],
+            0,
+        );
         let icmp = ICmpOp { op };
         icmp.set_attr_predicate(ctx, predicate.as_str().to_string().into());
         icmp
@@ -1266,7 +1498,7 @@ pub struct ConcatOp;
 impl Verify for ConcatOp {
     fn verify(&self, ctx: &Context) -> Result<()> {
         let op = self.get_operation().deref(ctx);
-        if op.num_operands() == 0 {
+        if op.get_num_operands() == 0 {
             return verify_err!(
                 op.loc(),
                 "comb.concat requires at least one operand, found 0"
@@ -1274,10 +1506,20 @@ impl Verify for ConcatOp {
         }
         let mut sum_width = 0u64;
         for (i, opd) in op.operands().enumerate() {
-            let w = verify_integer_type(&op, ctx, opd.get_type(ctx), &format!("comb.concat operand {}", i))?;
+            let w = verify_integer_type(
+                &op,
+                ctx,
+                opd.get_type(ctx),
+                &format!("comb.concat operand {}", i),
+            )?;
             sum_width += w as u64;
         }
-        let res_w = verify_integer_type(&op, ctx, op.get_result(0).get_type(ctx), "comb.concat result")? as u64;
+        let res_w = verify_integer_type(
+            &op,
+            ctx,
+            op.get_result(0).get_type(ctx),
+            "comb.concat result",
+        )? as u64;
         if sum_width != res_w {
             return verify_err!(
                 op.loc(),
@@ -1299,14 +1541,27 @@ impl SideEffects for ConcatOp {
 
 impl CombOpExt for ConcatOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl ConcatOp {
     /// Create a new `comb.concat`.
     pub fn new(ctx: &mut Context, inputs: Vec<Value>, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], inputs, vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            inputs,
+            vec![],
+            0,
+        );
         ConcatOp { op }
     }
 
@@ -1333,14 +1588,27 @@ pub struct ExtractOp;
 impl Verify for ExtractOp {
     fn verify(&self, ctx: &Context) -> Result<()> {
         let op = self.get_operation().deref(ctx);
-        let in_w = verify_integer_type(&op, ctx, op.get_operand(0).get_type(ctx), "comb.extract input")?;
-        let res_w = verify_integer_type(&op, ctx, op.get_result(0).get_type(ctx), "comb.extract result")?;
-        let low_bit_attr = self.get_attr_extract_low_bit(ctx).ok_or_else(|| {
-            pliron::result::Error::VerificationError {
-                loc: op.loc(),
-                err: "comb.extract missing required attribute extract_low_bit".to_string(),
-            }
-        })?;
+        let in_w = verify_integer_type(
+            &op,
+            ctx,
+            op.get_operand(0).get_type(ctx),
+            "comb.extract input",
+        )?;
+        let res_w = verify_integer_type(
+            &op,
+            ctx,
+            op.get_result(0).get_type(ctx),
+            "comb.extract result",
+        )?;
+        let low_bit_attr = self
+            .get_attr_extract_low_bit(ctx)
+            .ok_or_else(|| -> Result<()> {
+                verify_err!(
+                    op.loc(),
+                    "comb.extract missing required attribute extract_low_bit",
+                )
+            })
+            .unwrap();
         let low_bit = low_bit_attr.value().to_u64();
         if low_bit + (res_w as u64) > (in_w as u64) {
             return verify_err!(
@@ -1364,14 +1632,27 @@ impl SideEffects for ExtractOp {
 
 impl CombOpExt for ExtractOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl ExtractOp {
     /// Create a new `comb.extract`.
     pub fn new(ctx: &mut Context, val: Value, low_bit: IntegerAttr, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![val], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![val],
+            vec![],
+            0,
+        );
         let extract = ExtractOp { op };
         extract.set_attr_extract_low_bit(ctx, low_bit);
         extract
@@ -1389,7 +1670,9 @@ impl ExtractOp {
 
     /// Get low bit attribute.
     pub fn low_bit(&self, ctx: &Context) -> IntegerAttr {
-        self.get_attr_extract_low_bit(ctx).expect("verified extract_low_bit").clone()
+        self.get_attr_extract_low_bit(ctx)
+            .expect("verified extract_low_bit")
+            .clone()
     }
 }
 
@@ -1405,20 +1688,27 @@ pub struct ReplicateOp;
 impl Verify for ReplicateOp {
     fn verify(&self, ctx: &Context) -> Result<()> {
         let op = self.get_operation().deref(ctx);
-        let in_w = verify_integer_type(&op, ctx, op.get_operand(0).get_type(ctx), "comb.replicate input")?;
-        let res_w = verify_integer_type(&op, ctx, op.get_result(0).get_type(ctx), "comb.replicate result")?;
-        let count_attr = self.get_attr_count(ctx).ok_or_else(|| {
-            pliron::result::Error::VerificationError {
-                loc: op.loc(),
-                err: "comb.replicate missing required attribute count".to_string(),
-            }
-        })?;
+        let in_w = verify_integer_type(
+            &op,
+            ctx,
+            op.get_operand(0).get_type(ctx),
+            "comb.replicate input",
+        )?;
+        let res_w = verify_integer_type(
+            &op,
+            ctx,
+            op.get_result(0).get_type(ctx),
+            "comb.replicate result",
+        )?;
+        let count_attr = self
+            .get_attr_count(ctx)
+            .ok_or_else(|| -> Result<()> {
+                verify_err!(op.loc(), "comb.replicate missing required attribute count",)
+            })
+            .unwrap();
         let count = count_attr.value().to_u64();
         if count == 0 {
-            return verify_err!(
-                op.loc(),
-                "comb.replicate count must be positive, found 0"
-            );
+            return verify_err!(op.loc(), "comb.replicate count must be positive, found 0");
         }
         let expected_w = (in_w as u64) * count;
         if res_w as u64 != expected_w {
@@ -1444,14 +1734,27 @@ impl SideEffects for ReplicateOp {
 
 impl CombOpExt for ReplicateOp {
     fn width(&self, ctx: &Context) -> u32 {
-        verify_integer_type(&self.get_operation().deref(ctx), ctx, self.result(ctx).get_type(ctx), "res").unwrap_or(0)
+        verify_integer_type(
+            &self.get_operation().deref(ctx),
+            ctx,
+            self.result(ctx).get_type(ctx),
+            "res",
+        )
+        .unwrap_or(0)
     }
 }
 
 impl ReplicateOp {
     /// Create a new `comb.replicate`.
     pub fn new(ctx: &mut Context, val: Value, count: IntegerAttr, res_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![res_ty], vec![val], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![res_ty],
+            vec![val],
+            vec![],
+            0,
+        );
         let rep = ReplicateOp { op };
         rep.set_attr_count(ctx, count);
         rep
@@ -1504,7 +1807,14 @@ impl CombOpExt for ParityOp {
 impl ParityOp {
     /// Create a new `comb.parity`.
     pub fn new(ctx: &mut Context, val: Value, i1_ty: TypeHandle) -> Self {
-        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![i1_ty], vec![val], vec![], 0);
+        let op = Operation::new(
+            ctx,
+            Self::get_concrete_op_info(),
+            vec![i1_ty],
+            vec![val],
+            vec![],
+            0,
+        );
         ParityOp { op }
     }
 
