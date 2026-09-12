@@ -6,6 +6,7 @@
 //! Provides zero-latency arithmetic, logical, comparison, and bit-level operations.
 
 pub mod ops;
+pub mod types;
 
 use pliron::context::Context;
 
