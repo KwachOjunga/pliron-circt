@@ -10,6 +10,7 @@
 pub mod canonicalization;
 pub mod lowering;
 pub mod ops;
+pub mod parser;
 pub mod printer;
 
 use pliron::context::Context;

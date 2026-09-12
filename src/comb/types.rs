@@ -29,7 +29,10 @@ pub fn get_integer_width(ctx: &Context, ty: TypeHandle) -> Result<u32> {
         }
         Ok(w)
     } else {
-        verify_err_noloc!("expected integer type in comb dialect, found {}", ty.disp(ctx))
+        verify_err_noloc!(
+            "expected integer type in comb dialect, found {}",
+            ty.disp(ctx)
+        )
     }
 }
 

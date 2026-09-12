@@ -675,8 +675,8 @@ impl Verify for BinaryExprOp {
             .get_attr_binary_operator(ctx)
             .expect("sv.binary_expr requires binary_operator");
         let valid_ops = [
-            "+", "-", "*", "/", "%", "<<", ">>", ">>>", "&", "|", "^", "~^", "^~",
-            "==", "!=", "<", "<=", ">", ">=", "&&", "||",
+            "+", "-", "*", "/", "%", "<<", ">>", ">>>", "&", "|", "^", "~^", "^~", "==", "!=", "<",
+            "<=", ">", ">=", "&&", "||",
         ];
         if !valid_ops.contains(&op_str.as_ref()) {
             return verify_err!(
@@ -894,11 +894,7 @@ impl Verify for ConcatExprOp {
 
 impl ConcatExprOp {
     /// Create a new SystemVerilog concatenation expression.
-    pub fn new(
-        ctx: &mut Context,
-        inputs: Vec<Value>,
-        res_ty: pliron::r#type::TypeHandle,
-    ) -> Self {
+    pub fn new(ctx: &mut Context, inputs: Vec<Value>, res_ty: pliron::r#type::TypeHandle) -> Self {
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -1000,7 +996,9 @@ impl SliceExprOp {
 
     /// Get the slice width.
     pub fn width(&self, ctx: &Context) -> IntegerAttr {
-        self.get_attr_slice_width(ctx).expect("verified slice_width").clone()
+        self.get_attr_slice_width(ctx)
+            .expect("verified slice_width")
+            .clone()
     }
 }
 
@@ -1116,12 +1114,16 @@ impl ConstantExprOp {
 
     /// Get the constant value.
     pub fn value(&self, ctx: &Context) -> IntegerAttr {
-        self.get_attr_constant_value(ctx).expect("verified value").clone()
+        self.get_attr_constant_value(ctx)
+            .expect("verified value")
+            .clone()
     }
 
     /// Get the constant bitwidth.
     pub fn width(&self, ctx: &Context) -> IntegerAttr {
-        self.get_attr_constant_width(ctx).expect("verified width").clone()
+        self.get_attr_constant_width(ctx)
+            .expect("verified width")
+            .clone()
     }
 }
 
