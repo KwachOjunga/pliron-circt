@@ -2,11 +2,15 @@
 // Copyright (c) The pliron contributors
 
 use pliron::{
-    builtin::types::{IntegerType, Signedness},
+    builtin::{
+        attributes::IntegerAttr,
+        types::{IntegerType, Signedness},
+    },
     context::Context,
     irbuild::{listener::DummyListener, rewriter::IRRewriter},
     op::{Op, verify_op},
     r#type::{TypeHandle, Typed},
+    utils::apint::{APInt, bw},
 };
 use pliron_hw::{
     hw::{
@@ -22,8 +26,10 @@ use pliron_hw::{
         canonicalization::eliminate_redundant_assign,
         lowering::{lower_compreg, lower_firreg, lower_module, lower_module_registers},
         ops::{
-            AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, InstanceOp, LogicDeclOp,
-            MemDeclOp, MemReadOp, MemWriteOp,
+            AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, BinaryExprOp, BpaOp, CaseOp,
+            ConcatExprOp, ConstantExprOp, IndexExprOp, InstanceOp, LogicDeclOp, MemDeclOp,
+            MemReadOp, MemWriteOp, MuxExprOp, NbaOp, RegDeclOp, SliceExprOp, UnaryExprOp,
+            WireDeclOp,
         },
         printer::render_module,
     },
@@ -441,3 +447,79 @@ fn test_sv_module_conversion_lowers_memory_resource_and_ports() {
     assert!(source.contains("logic [7:0] storage [0:15];"));
     assert!(source.contains("read_data_0 <= storage[address];"));
 }
+
+fn int_attr(ctx: &mut Context, width: u32, val: u64) -> IntegerAttr {
+    let ty = IntegerType::get(ctx, width, Signedness::Signless);
+    IntegerAttr::new(ty, APInt::from_u64(val, bw(width as usize)))
+}
+
+#[test]
+// Proves that new SV expressions, declarations, assignments, and case statements verify and expose typed accessors.
+fn test_sv_new_expressions_and_declarations_verify() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+
+    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let i4_ty: TypeHandle = IntegerType::get(&mut ctx, 4, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i16_ty: TypeHandle = IntegerType::get(&mut ctx, 16, Signedness::Signless).into();
+
+    let module = ModuleOp::new(
+        &mut ctx,
+        "sv_expr_test".try_into().unwrap(),
+        vec![i8_ty, i8_ty, i1_ty],
+    );
+    let body = module.get_body(&ctx);
+    let a = module.get_input(&ctx, 0);
+    let b = module.get_input(&ctx, 1);
+    let sel = module.get_input(&ctx, 2);
+
+    let wire = WireDeclOp::new(&mut ctx, "w", i8_ty);
+    let reg = RegDeclOp::new(&mut ctx, "r", i8_ty);
+    let bin = BinaryExprOp::new(&mut ctx, "+", a, b, i8_ty);
+    let un = UnaryExprOp::new(&mut ctx, "~", a, i8_ty);
+    let mux = MuxExprOp::new(&mut ctx, sel, a, b, i8_ty);
+    let concat = ConcatExprOp::new(&mut ctx, vec![a, b], i16_ty);
+    let slice_low = int_attr(&mut ctx, 32, 0);
+    let slice_w = int_attr(&mut ctx, 32, 4);
+    let slice = SliceExprOp::new(&mut ctx, a, slice_low, slice_w, i4_ty);
+    let index = IndexExprOp::new(&mut ctx, a, sel, i1_ty);
+    let const_val = int_attr(&mut ctx, 8, 42);
+    let const_w = int_attr(&mut ctx, 32, 8);
+    let c = ConstantExprOp::new(&mut ctx, const_val, const_w, i8_ty);
+    let bin_res = bin.result(&ctx);
+    let bpa = BpaOp::new(&mut ctx, "r", bin_res);
+    let nba = NbaOp::new(&mut ctx, "r", bin_res);
+    let case_op = CaseOp::new(&mut ctx, "r", sel);
+
+    assert_eq!(wire.target(&ctx).as_ref(), "w");
+    assert_eq!(reg.target(&ctx).as_ref(), "r");
+    assert_eq!(bin.operator(&ctx).as_ref(), "+");
+    assert_eq!(un.operator(&ctx).as_ref(), "~");
+    assert_eq!(slice.low_bit(&ctx).value().to_u64(), 0);
+    assert_eq!(slice.width(&ctx).value().to_u64(), 4);
+    assert_eq!(c.value(&ctx).value().to_u64(), 42);
+    assert_eq!(c.width(&ctx).value().to_u64(), 8);
+    assert_eq!(bpa.target(&ctx).as_ref(), "r");
+    assert_eq!(nba.target(&ctx).as_ref(), "r");
+    assert_eq!(case_op.target(&ctx).as_ref(), "r");
+
+    wire.get_operation().insert_at_back(body, &mut ctx);
+    reg.get_operation().insert_at_back(body, &mut ctx);
+    bin.get_operation().insert_at_back(body, &mut ctx);
+    un.get_operation().insert_at_back(body, &mut ctx);
+    mux.get_operation().insert_at_back(body, &mut ctx);
+    concat.get_operation().insert_at_back(body, &mut ctx);
+    slice.get_operation().insert_at_back(body, &mut ctx);
+    index.get_operation().insert_at_back(body, &mut ctx);
+    c.get_operation().insert_at_back(body, &mut ctx);
+    bpa.get_operation().insert_at_back(body, &mut ctx);
+    nba.get_operation().insert_at_back(body, &mut ctx);
+    case_op.get_operation().insert_at_back(body, &mut ctx);
+
+    let output = OutputOp::new(&mut ctx, vec![bin_res]);
+    output.get_operation().insert_at_back(body, &mut ctx);
+
+    verify_op(&module, &ctx).expect("SV expressions and declarations should verify");
+}
+
