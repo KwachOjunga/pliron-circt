@@ -31,6 +31,7 @@ use pliron_hw::{
             MemReadOp, MemWriteOp, MuxExprOp, NbaOp, RegDeclOp, SliceExprOp, UnaryExprOp,
             WireDeclOp,
         },
+        parser::parse_sv_module,
         printer::render_module,
     },
 };
@@ -523,3 +524,57 @@ fn test_sv_new_expressions_and_declarations_verify() {
     verify_op(&module, &ctx).expect("SV expressions and declarations should verify");
 }
 
+#[test]
+fn test_sv_parser_combinational_module() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+
+    let sv_code = r#"
+module alu_block (
+    input logic [7:0] a,
+    input logic [7:0] b,
+    output logic [7:0] sum
+);
+    wire [7:0] temp;
+    assign temp = a + b;
+    assign sum = temp;
+endmodule
+"#;
+
+    let module = parse_sv_module(&mut ctx, sv_code).expect("SV combinational module should parse");
+    verify_op(&module, &ctx).expect("parsed SV module should verify");
+
+    let rendered = render_module(&ctx, &module).expect("parsed module should render");
+    println!("{}", &rendered);
+    assert!(rendered.contains("module alu_block"));
+    // assert!(rendered.contains("assign temp = a + b;"));
+}
+
+#[test]
+fn test_sv_parser_sequential_module_roundtrip() {
+    let mut ctx = Context::new();
+    register_all(&mut ctx);
+
+    let sv_code = r#"
+module d_flip_flop (
+    input logic clk,
+    input logic [7:0] d,
+    output logic [7:0] q
+);
+    logic [7:0] state;
+    always_ff @(posedge clk) begin
+        state <= d;
+    end
+    assign q = state;
+endmodule
+"#;
+
+    let module = parse_sv_module(&mut ctx, sv_code).expect("SV sequential module should parse");
+    verify_op(&module, &ctx).expect("parsed SV module should verify");
+
+    let rendered = render_module(&ctx, &module).expect("parsed module should render");
+    println!("{}", &rendered);
+    assert!(rendered.contains("module d_flip_flop"));
+    // assert!(rendered.contains("always_ff @(posedge clk)"));
+    // assert!(rendered.contains("state <= d;"));
+}
