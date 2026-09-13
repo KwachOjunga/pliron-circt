@@ -445,7 +445,7 @@ fn test_hw_module_ports_and_output_accessors() {
     assert_eq!(module.num_inputs(&ctx), 2);
     assert_eq!(module.get_input(&ctx, 0).get_type(&ctx), i8);
     assert_eq!(module.get_input(&ctx, 1).get_type(&ctx), i1);
-    assert_eq!(output.num_outputs(&ctx), 1);
+    assert_eq!(output.get_num_outputs(&ctx), 1);
     assert_eq!(output.get_output(&ctx, 0).get_type(&ctx), i8);
     verify_op(&module, &ctx).expect("module ports and output should verify");
 }

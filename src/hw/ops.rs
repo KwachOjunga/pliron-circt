@@ -4,17 +4,20 @@
 //! Operations defined in the `hw` dialect.
 
 use pliron::{
-    attribute::AttributeDict,
+    attribute::{Attribute, AttributeDict, attr_cast},
     basic_block::BasicBlock,
     builtin::{
+        attr_interfaces::TypedAttrInterface,
         attributes::{IdentifierAttr, IntegerAttr, StringAttr},
         op_interfaces::{
             self, IsTerminatorInterface, IsolatedFromAboveInterface, NOpdsInterface,
             NRegionsInterface, NResultsInterface, OneRegionInterface, OneResultInterface,
             RegionKind, RegionKindInterface, SingleBlockRegionInterface, SymbolOpInterface,
         },
+        ops::ConstantOpVerifyErr,
     },
     combine::{Parser, optional, token},
+    common_traits::Verify,
     context::{Context, Ptr},
     derive::{op_interface_impl, pliron_op},
     identifier::Identifier,
@@ -30,6 +33,7 @@ use pliron::{
     printable::{self, Printable},
     r#type::{TypeHandle, Typed},
     value::Value,
+    verify_err,
 };
 
 /// Hardware module container operation.
@@ -178,7 +182,7 @@ impl OutputOp {
     }
 
     /// Get the number of output ports driven by this terminator.
-    pub fn num_outputs(&self, ctx: &Context) -> usize {
+    pub fn get_num_outputs(&self, ctx: &Context) -> usize {
         self.get_operation().deref(ctx).get_num_operands()
     }
 
@@ -193,15 +197,14 @@ impl OutputOp {
     name = "hw.constant",
     format = "attr($value, $IntegerAttr) ` : ` type($0)",
     interfaces = [NOpdsInterface<0>, OneResultInterface],
-    attributes = (value: IntegerAttr),
-    verifier = "succ",
+    attributes = (value),
 )]
 pub struct ConstantOp;
 
 impl ConstantOp {
     /// Create a new `hw.constant` producing a constant value.
-    pub fn new(ctx: &mut Context, value_attr: IntegerAttr) -> Self {
-        let ty = value_attr.get_type();
+    pub fn new(ctx: &mut Context, value_attr: impl TypedAttrInterface) -> Self {
+        let ty = value_attr.get_type(&ctx);
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -211,13 +214,42 @@ impl ConstantOp {
             0,
         );
         let const_op = ConstantOp { op };
-        const_op.set_attr_value(ctx, value_attr);
+        const_op.set_attr_value(ctx, Box::new(value_attr));
         const_op
     }
 
     /// Get the SSA result produced by this constant.
     pub fn result(&self, ctx: &Context) -> Value {
         self.get_operation().deref(ctx).get_result(0)
+    }
+}
+
+impl Verify for ConstantOp {
+    fn verify(&self, ctx: &Context) -> pliron::result::Result<()> {
+        let loc = self.loc(ctx);
+        let result_type = self.result_type(ctx);
+
+        let Some(value) = self.get_attr_value(ctx) else {
+            return verify_err!(loc, ConstantOpVerifyErr::MissingValue);
+        };
+        let value: &dyn Attribute = &**value;
+        let Some(value) = attr_cast::<dyn TypedAttrInterface>(value) else {
+            return verify_err!(
+                loc,
+                ConstantOpVerifyErr::ValueNotTyped(value.get_attr_id().to_string())
+            );
+        };
+
+        if value.get_type(ctx) != result_type {
+            return verify_err!(
+                loc,
+                ConstantOpVerifyErr::ResultTypeMismatch(
+                    value.get_type(ctx).disp(ctx).to_string(),
+                    result_type.disp(ctx).to_string()
+                )
+            );
+        }
+        Ok(())
     }
 }
 
