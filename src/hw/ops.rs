@@ -4,17 +4,16 @@
 //! Operations defined in the `hw` dialect.
 
 use pliron::{
-    attribute::{Attribute, AttributeDict, attr_cast},
+    attribute::AttributeDict,
     basic_block::BasicBlock,
     builtin::{
-        attr_interfaces::TypedAttrInterface,
         attributes::{IdentifierAttr, IntegerAttr, StringAttr},
         op_interfaces::{
             self, IsTerminatorInterface, IsolatedFromAboveInterface, NOpdsInterface,
             NRegionsInterface, NResultsInterface, OneRegionInterface, OneResultInterface,
             RegionKind, RegionKindInterface, SingleBlockRegionInterface, SymbolOpInterface,
         },
-        ops::ConstantOpVerifyErr,
+        types::IntegerType,
     },
     combine::{Parser, optional, token},
     common_traits::Verify,
@@ -26,15 +25,63 @@ use pliron::{
         parsers::spaced,
         printers::op::{region, symb_op_header},
     },
+    linked_list::ContainsLinkedList,
     location::{Located, Location},
     op::{Op, OpObj},
     operation::Operation,
     parsable::{Parsable, ParseResult, StateStream},
     printable::{self, Printable},
     r#type::{TypeHandle, Typed},
+    result::Result,
     value::Value,
     verify_err,
 };
+
+use super::types::{
+    ArrayType, EnumType, InoutType, IntType, StructType, TypeAliasType, UnionType,
+};
+
+/// Compute the total bitwidth of a hardware type, if statically known.
+pub fn compute_type_bitwidth(ctx: &Context, ty: TypeHandle) -> Option<u64> {
+    let ty_ref = ty.deref(ctx);
+    if let Some(int_ty) = ty_ref.downcast_ref::<IntegerType>() {
+        return Some(int_ty.width() as u64);
+    }
+    if let Some(int_ty) = ty_ref.downcast_ref::<IntType>() {
+        return Some(int_ty.width() as u64);
+    }
+    if let Some(arr_ty) = ty_ref.downcast_ref::<ArrayType>() {
+        let elem_w = compute_type_bitwidth(ctx, arr_ty.element_type())?;
+        return Some(arr_ty.size().checked_mul(elem_w)?);
+    }
+    if let Some(st_ty) = ty_ref.downcast_ref::<StructType>() {
+        let mut total = 0u64;
+        for field in st_ty.fields() {
+            total = total.checked_add(compute_type_bitwidth(ctx, field.ty)?)?;
+        }
+        return Some(total);
+    }
+    if let Some(u_ty) = ty_ref.downcast_ref::<UnionType>() {
+        let mut max_w = 0u64;
+        for field in u_ty.fields() {
+            let w = compute_type_bitwidth(ctx, field.ty)?;
+            if w > max_w {
+                max_w = w;
+            }
+        }
+        return Some(max_w);
+    }
+    if let Some(alias_ty) = ty_ref.downcast_ref::<TypeAliasType>() {
+        return compute_type_bitwidth(ctx, alias_ty.inner_type());
+    }
+    if let Some(enum_ty) = ty_ref.downcast_ref::<EnumType>() {
+        return compute_type_bitwidth(ctx, enum_ty.underlying_type());
+    }
+    if let Some(inout_ty) = ty_ref.downcast_ref::<InoutType>() {
+        return compute_type_bitwidth(ctx, inout_ty.element_type());
+    }
+    None
+}
 
 /// Hardware module container operation.
 ///
@@ -50,9 +97,24 @@ use pliron::{
         NOpdsInterface<0>,
         NResultsInterface<0>,
     ],
-    verifier = "succ",
 )]
 pub struct ModuleOp;
+
+impl Verify for ModuleOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let region = self.get_region(ctx);
+        let block_ptr = match region.deref(ctx).get_entry_block() {
+            Some(b) => b,
+            None => return verify_err!(op.loc(), "hw.module body region must contain at least one block"),
+        };
+        let block = block_ptr.deref(ctx);
+        if block.get_head().is_some() && block.get_terminator(ctx).is_none() {
+            return verify_err!(op.loc(), "hw.module block must end with a terminator");
+        }
+        Ok(())
+    }
+}
 
 #[op_interface_impl]
 impl RegionKindInterface for ModuleOp {
@@ -163,9 +225,14 @@ impl Parsable for ModuleOp {
     name = "hw.output",
     format,
     interfaces = [IsTerminatorInterface, NResultsInterface<0>],
-    verifier = "succ",
 )]
 pub struct OutputOp;
+
+impl Verify for OutputOp {
+    fn verify(&self, _ctx: &Context) -> Result<()> {
+        Ok(())
+    }
+}
 
 impl OutputOp {
     /// Create a new `hw.output` operation driving the given values.
@@ -182,7 +249,7 @@ impl OutputOp {
     }
 
     /// Get the number of output ports driven by this terminator.
-    pub fn get_num_outputs(&self, ctx: &Context) -> usize {
+    pub fn num_outputs(&self, ctx: &Context) -> usize {
         self.get_operation().deref(ctx).get_num_operands()
     }
 
@@ -197,14 +264,38 @@ impl OutputOp {
     name = "hw.constant",
     format = "attr($value, $IntegerAttr) ` : ` type($0)",
     interfaces = [NOpdsInterface<0>, OneResultInterface],
-    attributes = (value),
+    attributes = (value: IntegerAttr),
 )]
 pub struct ConstantOp;
 
+impl Verify for ConstantOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let val_attr = match self.get_attr_value(ctx) {
+            Some(attr) => attr,
+            None => return verify_err!(op.loc(), "hw.constant requires value attribute"),
+        };
+        let res_ty = op.get_result(0).get_type(ctx);
+        if let Some(int_ty) = res_ty.deref(ctx).downcast_ref::<IntegerType>() {
+            let attr_w = val_attr.get_type().deref(ctx).width();
+            if attr_w != int_ty.width() {
+                return verify_err!(
+                    op.loc(),
+                    "hw.constant attribute width ({}) does not match result type width ({})",
+                    attr_w,
+                    int_ty.width()
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
 impl ConstantOp {
     /// Create a new `hw.constant` producing a constant value.
-    pub fn new(ctx: &mut Context, value_attr: impl TypedAttrInterface) -> Self {
-        let ty = value_attr.get_type(&ctx);
+    pub fn new(ctx: &mut Context, value_attr: IntegerAttr) -> Self {
+        let ty = value_attr.get_type();
+        assert!(ty.deref(ctx).width() > 0, "hw.constant width must be non-zero");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -214,7 +305,7 @@ impl ConstantOp {
             0,
         );
         let const_op = ConstantOp { op };
-        const_op.set_attr_value(ctx, Box::new(value_attr));
+        const_op.set_attr_value(ctx, value_attr);
         const_op
     }
 
@@ -224,44 +315,32 @@ impl ConstantOp {
     }
 }
 
-impl Verify for ConstantOp {
-    fn verify(&self, ctx: &Context) -> pliron::result::Result<()> {
-        let loc = self.loc(ctx);
-        let result_type = self.result_type(ctx);
-
-        let Some(value) = self.get_attr_value(ctx) else {
-            return verify_err!(loc, ConstantOpVerifyErr::MissingValue);
-        };
-        let value: &dyn Attribute = &**value;
-        let Some(value) = attr_cast::<dyn TypedAttrInterface>(value) else {
-            return verify_err!(
-                loc,
-                ConstantOpVerifyErr::ValueNotTyped(value.get_attr_id().to_string())
-            );
-        };
-
-        if value.get_type(ctx) != result_type {
-            return verify_err!(
-                loc,
-                ConstantOpVerifyErr::ResultTypeMismatch(
-                    value.get_type(ctx).disp(ctx).to_string(),
-                    result_type.disp(ctx).to_string()
-                )
-            );
-        }
-        Ok(())
-    }
-}
-
 /// Submodule instance operation.
 #[pliron_op(
     name = "hw.instance",
     format,
     interfaces = [NRegionsInterface<0>],
     attributes = (instance_name: StringAttr, module_name: IdentifierAttr),
-    verifier = "succ",
 )]
 pub struct InstanceOp;
+
+impl Verify for InstanceOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let inst_name = match self.get_attr_instance_name(ctx) {
+            Some(n) => n,
+            None => return verify_err!(op.loc(), "hw.instance requires instance_name attribute"),
+        };
+        if inst_name.as_ref().is_empty() {
+            return verify_err!(op.loc(), "hw.instance instance_name cannot be empty");
+        }
+        let _mod_name = match self.get_attr_module_name(ctx) {
+            Some(m) => m,
+            None => return verify_err!(op.loc(), "hw.instance requires module_name attribute"),
+        };
+        Ok(())
+    }
+}
 
 impl InstanceOp {
     /// Create a new `hw.instance` instantiating `module_name` as `instance_name`.
@@ -272,6 +351,7 @@ impl InstanceOp {
         inputs: Vec<Value>,
         output_types: Vec<TypeHandle>,
     ) -> Self {
+        assert!(!instance_name.as_ref().is_empty(), "hw.instance instance_name cannot be empty");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -316,9 +396,14 @@ impl InstanceOp {
         NOpdsInterface<0>,
         NResultsInterface<0>,
     ],
-    verifier = "succ",
 )]
 pub struct ExternModuleOp;
+
+impl Verify for ExternModuleOp {
+    fn verify(&self, _ctx: &Context) -> Result<()> {
+        Ok(())
+    }
+}
 
 impl ExternModuleOp {
     /// Create an external module declaration with symbol name.
@@ -339,13 +424,37 @@ impl ExternModuleOp {
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
     attributes = (name: StringAttr),
-    verifier = "succ",
 )]
 pub struct WireOp;
+
+impl Verify for WireOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let name = match self.get_attr_name(ctx) {
+            Some(n) => n,
+            None => return verify_err!(op.loc(), "hw.wire requires name attribute"),
+        };
+        if name.as_ref().is_empty() {
+            return verify_err!(op.loc(), "hw.wire name cannot be empty");
+        }
+        let in_ty = op.get_operand(0).get_type(ctx);
+        let res_ty = op.get_result(0).get_type(ctx);
+        if in_ty != res_ty {
+            return verify_err!(
+                op.loc(),
+                "hw.wire input type {} does not match result type {}",
+                in_ty.disp(ctx),
+                res_ty.disp(ctx)
+            );
+        }
+        Ok(())
+    }
+}
 
 impl WireOp {
     /// Create a new `hw.wire` binding an input signal to a named hardware net.
     pub fn new(ctx: &mut Context, name: StringAttr, input: Value) -> Self {
+        assert!(!name.as_ref().is_empty(), "hw.wire name cannot be empty");
         let ty = input.get_type(ctx);
         let op = Operation::new(
             ctx,
@@ -381,13 +490,44 @@ impl WireOp {
     name = "hw.bitcast",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
-    verifier = "succ",
 )]
 pub struct BitcastOp;
+
+impl Verify for BitcastOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let in_ty = op.get_operand(0).get_type(ctx);
+        let res_ty = op.get_result(0).get_type(ctx);
+        let in_w = compute_type_bitwidth(ctx, in_ty);
+        let res_w = compute_type_bitwidth(ctx, res_ty);
+        if let (Some(w_in), Some(w_res)) = (in_w, res_w) {
+            if w_in != w_res {
+                return verify_err!(
+                    op.loc(),
+                    "hw.bitcast input bitwidth ({}) must equal result bitwidth ({}); use comb.zext/sext/trunc for width changes",
+                    w_in,
+                    w_res
+                );
+            }
+        }
+        Ok(())
+    }
+}
 
 impl BitcastOp {
     /// Create a new `hw.bitcast` casting `input` to `result_type`.
     pub fn new(ctx: &mut Context, input: Value, result_type: TypeHandle) -> Self {
+        let in_ty = input.get_type(ctx);
+        if let (Some(w_in), Some(w_res)) = (
+            compute_type_bitwidth(ctx, in_ty),
+            compute_type_bitwidth(ctx, result_type),
+        ) {
+            assert_eq!(
+                w_in, w_res,
+                "hw.bitcast input bitwidth ({}) must equal result bitwidth ({}); width conversions belong in comb",
+                w_in, w_res
+            );
+        }
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -415,13 +555,45 @@ impl BitcastOp {
     name = "hw.concat",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface],
-    verifier = "succ",
 )]
 pub struct ConcatOp;
+
+impl Verify for ConcatOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        if op.get_num_operands() == 0 {
+            return verify_err!(op.loc(), "hw.concat requires at least one operand");
+        }
+        let mut sum_w = 0u64;
+        for i in 0..op.get_num_operands() {
+            let opd_ty = op.get_operand(i).get_type(ctx);
+            match compute_type_bitwidth(ctx, opd_ty) {
+                Some(w) => sum_w += w,
+                None => return verify_err!(op.loc(), "hw.concat operand {} has unknown bitwidth", i),
+            }
+        }
+        let res_ty = op.get_result(0).get_type(ctx);
+        match compute_type_bitwidth(ctx, res_ty) {
+            Some(w_res) => {
+                if sum_w != w_res {
+                    return verify_err!(
+                        op.loc(),
+                        "hw.concat result bitwidth mismatch: expected sum of inputs ({}), found {}",
+                        sum_w,
+                        w_res
+                    );
+                }
+            }
+            None => return verify_err!(op.loc(), "hw.concat result has unknown bitwidth"),
+        }
+        Ok(())
+    }
+}
 
 impl ConcatOp {
     /// Create a new `hw.concat` concatenating `inputs` into `result_type`.
     pub fn new(ctx: &mut Context, inputs: Vec<Value>, result_type: TypeHandle) -> Self {
+        assert!(!inputs.is_empty(), "hw.concat requires at least one operand");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -445,9 +617,36 @@ impl ConcatOp {
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
     attributes = (low_bit: IntegerAttr),
-    verifier = "succ",
 )]
 pub struct SliceOp;
+
+impl Verify for SliceOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let low_attr = match self.get_attr_low_bit(ctx) {
+            Some(a) => a,
+            None => return verify_err!(op.loc(), "hw.slice requires low_bit attribute"),
+        };
+        let low = low_attr.value().to_u64();
+        let in_ty = op.get_operand(0).get_type(ctx);
+        let res_ty = op.get_result(0).get_type(ctx);
+        if let (Some(w_in), Some(w_res)) = (
+            compute_type_bitwidth(ctx, in_ty),
+            compute_type_bitwidth(ctx, res_ty),
+        ) {
+            if low.checked_add(w_res).map_or(true, |sum| sum > w_in) {
+                return verify_err!(
+                    op.loc(),
+                    "hw.slice out of bounds: low_bit ({}) + result width ({}) > input width ({})",
+                    low,
+                    w_res,
+                    w_in
+                );
+            }
+        }
+        Ok(())
+    }
+}
 
 impl SliceOp {
     /// Create a new `hw.slice` extracting a bit-slice from `input` starting at `low_bit`.
@@ -457,6 +656,19 @@ impl SliceOp {
         low_bit: IntegerAttr,
         result_type: TypeHandle,
     ) -> Self {
+        let in_ty = input.get_type(ctx);
+        let in_w = compute_type_bitwidth(ctx, in_ty);
+        let res_w = compute_type_bitwidth(ctx, result_type);
+        let low = low_bit.value().to_u64();
+        if let (Some(w_in), Some(w_res)) = (in_w, res_w) {
+            assert!(
+                low.checked_add(w_res).map_or(false, |sum| sum <= w_in),
+                "hw.slice low_bit ({}) + result width ({}) exceeds input width ({})",
+                low,
+                w_res,
+                w_in
+            );
+        }
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -486,13 +698,51 @@ impl SliceOp {
     name = "hw.array_create",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface],
-    verifier = "succ",
 )]
 pub struct ArrayCreateOp;
+
+impl Verify for ArrayCreateOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let res_ty = op.get_result(0).get_type(ctx);
+        let res_ty_ref = res_ty.deref(ctx);
+        let arr_ty = match res_ty_ref.downcast_ref::<ArrayType>() {
+            Some(a) => a,
+            None => return verify_err!(op.loc(), "hw.array_create result must be an ArrayType"),
+        };
+        if op.get_num_operands() as u64 != arr_ty.size() {
+            return verify_err!(
+                op.loc(),
+                "hw.array_create operand count ({}) != array size ({})",
+                op.get_num_operands(),
+                arr_ty.size()
+            );
+        }
+        for i in 0..op.get_num_operands() {
+            let opd_ty = op.get_operand(i).get_type(ctx);
+            if opd_ty != arr_ty.element_type() {
+                return verify_err!(
+                    op.loc(),
+                    "hw.array_create element {} type mismatch",
+                    i
+                );
+            }
+        }
+        Ok(())
+    }
+}
 
 impl ArrayCreateOp {
     /// Create a new `hw.array_create` from elements into `array_type`.
     pub fn new(ctx: &mut Context, elements: Vec<Value>, array_type: TypeHandle) -> Self {
+        assert!(!elements.is_empty(), "hw.array_create requires at least one element");
+        if let Some(arr_ty) = array_type.deref(ctx).downcast_ref::<ArrayType>() {
+            assert_eq!(
+                elements.len() as u64,
+                arr_ty.size(),
+                "hw.array_create element count must match array size"
+            );
+        }
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -515,13 +765,40 @@ impl ArrayCreateOp {
     name = "hw.array_get",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<2>],
-    verifier = "succ",
 )]
 pub struct ArrayGetOp;
+
+impl Verify for ArrayGetOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let arr_ty_handle = op.get_operand(0).get_type(ctx);
+        let arr_ty_ref = arr_ty_handle.deref(ctx);
+        let arr_ty = match arr_ty_ref.downcast_ref::<ArrayType>() {
+            Some(a) => a,
+            None => return verify_err!(op.loc(), "hw.array_get operand 0 must be an ArrayType"),
+        };
+        let res_ty = op.get_result(0).get_type(ctx);
+        if res_ty != arr_ty.element_type() {
+            return verify_err!(
+                op.loc(),
+                "hw.array_get result type does not match array element type"
+            );
+        }
+        Ok(())
+    }
+}
 
 impl ArrayGetOp {
     /// Create a new `hw.array_get` indexing `array` by `index`.
     pub fn new(ctx: &mut Context, array: Value, index: Value, elem_type: TypeHandle) -> Self {
+        let arr_val_ty = array.get_type(ctx);
+        if let Some(arr_ty) = arr_val_ty.deref(ctx).downcast_ref::<ArrayType>() {
+            assert_eq!(
+                arr_ty.element_type(),
+                elem_type,
+                "hw.array_get element type mismatch"
+            );
+        }
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -544,9 +821,33 @@ impl ArrayGetOp {
     name = "hw.array_slice",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<2>],
-    verifier = "succ",
 )]
 pub struct ArraySliceOp;
+
+impl Verify for ArraySliceOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let arr_ty_handle = op.get_operand(0).get_type(ctx);
+        let arr_ty_ref = arr_ty_handle.deref(ctx);
+        let arr_ty = match arr_ty_ref.downcast_ref::<ArrayType>() {
+            Some(a) => a,
+            None => return verify_err!(op.loc(), "hw.array_slice operand 0 must be an ArrayType"),
+        };
+        let res_ty = op.get_result(0).get_type(ctx);
+        let res_ty_ref = res_ty.deref(ctx);
+        let slice_ty = match res_ty_ref.downcast_ref::<ArrayType>() {
+            Some(s) => s,
+            None => return verify_err!(op.loc(), "hw.array_slice result must be an ArrayType"),
+        };
+        if arr_ty.element_type() != slice_ty.element_type() {
+            return verify_err!(op.loc(), "hw.array_slice element type mismatch");
+        }
+        if slice_ty.size() > arr_ty.size() {
+            return verify_err!(op.loc(), "hw.array_slice slice size exceeds array size");
+        }
+        Ok(())
+    }
+}
 
 impl ArraySliceOp {
     /// Create a new `hw.array_slice`.
@@ -573,13 +874,60 @@ impl ArraySliceOp {
     name = "hw.array_concat",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface],
-    verifier = "succ",
 )]
 pub struct ArrayConcatOp;
+
+impl Verify for ArrayConcatOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        if op.get_num_operands() == 0 {
+            return verify_err!(op.loc(), "hw.array_concat requires at least one operand");
+        }
+        let res_ty = op.get_result(0).get_type(ctx);
+        let res_ty_ref = res_ty.deref(ctx);
+        let res_arr = match res_ty_ref.downcast_ref::<ArrayType>() {
+            Some(a) => a,
+            None => return verify_err!(op.loc(), "hw.array_concat result must be an ArrayType"),
+        };
+        let mut total_size = 0u64;
+        for i in 0..op.get_num_operands() {
+            let opd_ty = op.get_operand(i).get_type(ctx);
+            let opd_ty_ref = opd_ty.deref(ctx);
+            let opd_arr = match opd_ty_ref.downcast_ref::<ArrayType>() {
+                Some(a) => a,
+                None => {
+                    return verify_err!(
+                        op.loc(),
+                        "hw.array_concat operand {} must be an ArrayType",
+                        i
+                    );
+                }
+            };
+            if opd_arr.element_type() != res_arr.element_type() {
+                return verify_err!(
+                    op.loc(),
+                    "hw.array_concat operand {} element type mismatch",
+                    i
+                );
+            }
+            total_size += opd_arr.size();
+        }
+        if total_size != res_arr.size() {
+            return verify_err!(
+                op.loc(),
+                "hw.array_concat size mismatch: sum ({}) != result ({})",
+                total_size,
+                res_arr.size()
+            );
+        }
+        Ok(())
+    }
+}
 
 impl ArrayConcatOp {
     /// Create a new `hw.array_concat`.
     pub fn new(ctx: &mut Context, arrays: Vec<Value>, result_type: TypeHandle) -> Self {
+        assert!(!arrays.is_empty(), "hw.array_concat requires at least one operand");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -602,9 +950,35 @@ impl ArrayConcatOp {
     name = "hw.array_inject",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<3>],
-    verifier = "succ",
 )]
 pub struct ArrayInjectOp;
+
+impl Verify for ArrayInjectOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let arr_ty_handle = op.get_operand(0).get_type(ctx);
+        let arr_ty_ref = arr_ty_handle.deref(ctx);
+        let arr_ty = match arr_ty_ref.downcast_ref::<ArrayType>() {
+            Some(a) => a,
+            None => return verify_err!(op.loc(), "hw.array_inject operand 0 must be an ArrayType"),
+        };
+        let new_val_ty = op.get_operand(2).get_type(ctx);
+        if new_val_ty != arr_ty.element_type() {
+            return verify_err!(
+                op.loc(),
+                "hw.array_inject new_val type does not match array element type"
+            );
+        }
+        let res_ty = op.get_result(0).get_type(ctx);
+        if res_ty != arr_ty_handle {
+            return verify_err!(
+                op.loc(),
+                "hw.array_inject result type must match input array type"
+            );
+        }
+        Ok(())
+    }
+}
 
 impl ArrayInjectOp {
     /// Create a new `hw.array_inject`.
@@ -637,9 +1011,39 @@ impl ArrayInjectOp {
     name = "hw.struct_create",
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface],
-    verifier = "succ",
 )]
 pub struct StructCreateOp;
+
+impl Verify for StructCreateOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let res_ty = op.get_result(0).get_type(ctx);
+        let res_ty_ref = res_ty.deref(ctx);
+        let st_ty = match res_ty_ref.downcast_ref::<StructType>() {
+            Some(s) => s,
+            None => return verify_err!(op.loc(), "hw.struct_create result must be a StructType"),
+        };
+        if op.get_num_operands() != st_ty.fields().len() {
+            return verify_err!(
+                op.loc(),
+                "hw.struct_create operand count ({}) does not match struct field count ({})",
+                op.get_num_operands(),
+                st_ty.fields().len()
+            );
+        }
+        for (i, field) in st_ty.fields().iter().enumerate() {
+            let opd_ty = op.get_operand(i).get_type(ctx);
+            if opd_ty != field.ty {
+                return verify_err!(
+                    op.loc(),
+                    "hw.struct_create field '{}' type mismatch",
+                    field.name
+                );
+            }
+        }
+        Ok(())
+    }
+}
 
 impl StructCreateOp {
     /// Create a new `hw.struct_create` packing `fields` into `struct_type`.
@@ -667,9 +1071,45 @@ impl StructCreateOp {
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
     attributes = (field_name: StringAttr),
-    verifier = "succ",
 )]
 pub struct StructExtractOp;
+
+impl Verify for StructExtractOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let f_name = match self.get_attr_field_name(ctx) {
+            Some(f) => f,
+            None => return verify_err!(op.loc(), "hw.struct_extract requires field_name attribute"),
+        };
+        if f_name.as_ref().is_empty() {
+            return verify_err!(op.loc(), "hw.struct_extract field_name cannot be empty");
+        }
+        let st_val_ty = op.get_operand(0).get_type(ctx);
+        let st_val_ty_ref = st_val_ty.deref(ctx);
+        let st_ty = match st_val_ty_ref.downcast_ref::<StructType>() {
+            Some(s) => s,
+            None => return verify_err!(op.loc(), "hw.struct_extract operand must be a StructType"),
+        };
+        let field = match st_ty.fields().iter().find(|f| f.name.to_string() == *f_name.as_ref()) {
+            Some(f) => f,
+            None => {
+                return verify_err!(
+                    op.loc(),
+                    "hw.struct_extract field '{}' not found in struct",
+                    f_name.as_ref()
+                );
+            }
+        };
+        let res_ty = op.get_result(0).get_type(ctx);
+        if res_ty != field.ty {
+            return verify_err!(
+                op.loc(),
+                "hw.struct_extract result type does not match field type"
+            );
+        }
+        Ok(())
+    }
+}
 
 impl StructExtractOp {
     /// Create a new `hw.struct_extract`.
@@ -679,6 +1119,7 @@ impl StructExtractOp {
         field_name: StringAttr,
         field_type: TypeHandle,
     ) -> Self {
+        assert!(!field_name.as_ref().is_empty(), "hw.struct_extract field_name cannot be empty");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -704,9 +1145,52 @@ impl StructExtractOp {
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<2>],
     attributes = (target_field: StringAttr),
-    verifier = "succ",
 )]
 pub struct StructInjectOp;
+
+impl Verify for StructInjectOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let f_name = match self.get_attr_target_field(ctx) {
+            Some(f) => f,
+            None => return verify_err!(op.loc(), "hw.struct_inject requires target_field attribute"),
+        };
+        if f_name.as_ref().is_empty() {
+            return verify_err!(op.loc(), "hw.struct_inject target_field cannot be empty");
+        }
+        let st_val_ty = op.get_operand(0).get_type(ctx);
+        let st_val_ty_ref = st_val_ty.deref(ctx);
+        let st_ty = match st_val_ty_ref.downcast_ref::<StructType>() {
+            Some(s) => s,
+            None => return verify_err!(op.loc(), "hw.struct_inject operand 0 must be a StructType"),
+        };
+        let field = match st_ty.fields().iter().find(|f| f.name.to_string() == *f_name.as_ref()) {
+            Some(f) => f,
+            None => {
+                return verify_err!(
+                    op.loc(),
+                    "hw.struct_inject field '{}' not found in struct",
+                    f_name.as_ref()
+                );
+            }
+        };
+        let new_val_ty = op.get_operand(1).get_type(ctx);
+        if new_val_ty != field.ty {
+            return verify_err!(
+                op.loc(),
+                "hw.struct_inject new_val type does not match field type"
+            );
+        }
+        let res_ty = op.get_result(0).get_type(ctx);
+        if res_ty != st_val_ty {
+            return verify_err!(
+                op.loc(),
+                "hw.struct_inject result type must match input struct type"
+            );
+        }
+        Ok(())
+    }
+}
 
 impl StructInjectOp {
     /// Create a new `hw.struct_inject`.
@@ -717,6 +1201,7 @@ impl StructInjectOp {
         new_val: Value,
         struct_type: TypeHandle,
     ) -> Self {
+        assert!(!field_name.as_ref().is_empty(), "hw.struct_inject target_field cannot be empty");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -741,9 +1226,40 @@ impl StructInjectOp {
     name = "hw.struct_explode",
     format,
     interfaces = [NRegionsInterface<0>, NOpdsInterface<1>],
-    verifier = "succ",
 )]
 pub struct StructExplodeOp;
+
+impl Verify for StructExplodeOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let st_val_ty = op.get_operand(0).get_type(ctx);
+        let st_val_ty_ref = st_val_ty.deref(ctx);
+        let st_ty = match st_val_ty_ref.downcast_ref::<StructType>() {
+            Some(s) => s,
+            None => return verify_err!(op.loc(), "hw.struct_explode operand must be a StructType"),
+        };
+        if op.get_num_results() != st_ty.fields().len() {
+            return verify_err!(
+                op.loc(),
+                "hw.struct_explode result count ({}) != struct fields ({})",
+                op.get_num_results(),
+                st_ty.fields().len()
+            );
+        }
+        for (i, field) in st_ty.fields().iter().enumerate() {
+            let res_ty = op.get_result(i).get_type(ctx);
+            if res_ty != field.ty {
+                return verify_err!(
+                    op.loc(),
+                    "hw.struct_explode result {} type mismatch for field '{}'",
+                    i,
+                    field.name
+                );
+            }
+        }
+        Ok(())
+    }
+}
 
 impl StructExplodeOp {
     /// Create a new `hw.struct_explode`.
@@ -778,9 +1294,14 @@ impl StructExplodeOp {
         NOpdsInterface<0>,
         NResultsInterface<0>,
     ],
-    verifier = "succ",
 )]
 pub struct TypeDeclOp;
+
+impl Verify for TypeDeclOp {
+    fn verify(&self, _ctx: &Context) -> Result<()> {
+        Ok(())
+    }
+}
 
 impl TypeDeclOp {
     /// Create a new `hw.typedecl` with symbol name.
@@ -798,9 +1319,46 @@ impl TypeDeclOp {
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
     attributes = (union_tag: StringAttr),
-    verifier = "succ",
 )]
 pub struct UnionCreateOp;
+
+impl Verify for UnionCreateOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let tag = match self.get_attr_union_tag(ctx) {
+            Some(t) => t,
+            None => return verify_err!(op.loc(), "hw.union_create requires union_tag attribute"),
+        };
+        if tag.as_ref().is_empty() {
+            return verify_err!(op.loc(), "hw.union_create union_tag cannot be empty");
+        }
+        let res_ty = op.get_result(0).get_type(ctx);
+        let res_ty_ref = res_ty.deref(ctx);
+        let u_ty = match res_ty_ref.downcast_ref::<UnionType>() {
+            Some(u) => u,
+            None => return verify_err!(op.loc(), "hw.union_create result must be a UnionType"),
+        };
+        let field = match u_ty.fields().iter().find(|f| f.name.to_string() == *tag.as_ref()) {
+            Some(f) => f,
+            None => {
+                return verify_err!(
+                    op.loc(),
+                    "hw.union_create field '{}' not found in union",
+                    tag.as_ref()
+                );
+            }
+        };
+        let val_ty = op.get_operand(0).get_type(ctx);
+        if val_ty != field.ty {
+            return verify_err!(
+                op.loc(),
+                "hw.union_create operand type does not match field '{}' type",
+                tag.as_ref()
+            );
+        }
+        Ok(())
+    }
+}
 
 impl UnionCreateOp {
     /// Create a new `hw.union_create`.
@@ -810,6 +1368,7 @@ impl UnionCreateOp {
         field_name: StringAttr,
         union_type: TypeHandle,
     ) -> Self {
+        assert!(!field_name.as_ref().is_empty(), "hw.union_create field_name cannot be empty");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -835,9 +1394,46 @@ impl UnionCreateOp {
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<1>],
     attributes = (extract_tag: StringAttr),
-    verifier = "succ",
 )]
 pub struct UnionExtractOp;
+
+impl Verify for UnionExtractOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let tag = match self.get_attr_extract_tag(ctx) {
+            Some(t) => t,
+            None => return verify_err!(op.loc(), "hw.union_extract requires extract_tag attribute"),
+        };
+        if tag.as_ref().is_empty() {
+            return verify_err!(op.loc(), "hw.union_extract extract_tag cannot be empty");
+        }
+        let u_val_ty = op.get_operand(0).get_type(ctx);
+        let u_val_ty_ref = u_val_ty.deref(ctx);
+        let u_ty = match u_val_ty_ref.downcast_ref::<UnionType>() {
+            Some(u) => u,
+            None => return verify_err!(op.loc(), "hw.union_extract operand must be a UnionType"),
+        };
+        let field = match u_ty.fields().iter().find(|f| f.name.to_string() == *tag.as_ref()) {
+            Some(f) => f,
+            None => {
+                return verify_err!(
+                    op.loc(),
+                    "hw.union_extract field '{}' not found in union",
+                    tag.as_ref()
+                );
+            }
+        };
+        let res_ty = op.get_result(0).get_type(ctx);
+        if res_ty != field.ty {
+            return verify_err!(
+                op.loc(),
+                "hw.union_extract result type does not match field '{}' type",
+                tag.as_ref()
+            );
+        }
+        Ok(())
+    }
+}
 
 impl UnionExtractOp {
     /// Create a new `hw.union_extract`.
@@ -847,6 +1443,7 @@ impl UnionExtractOp {
         field_name: StringAttr,
         field_type: TypeHandle,
     ) -> Self {
+        assert!(!field_name.as_ref().is_empty(), "hw.union_extract field_name cannot be empty");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -877,9 +1474,14 @@ impl UnionExtractOp {
         NResultsInterface<0>,
     ],
     attributes = (param_type: StringAttr, default_val: StringAttr),
-    verifier = "succ",
 )]
 pub struct ParamDeclOp;
+
+impl Verify for ParamDeclOp {
+    fn verify(&self, _ctx: &Context) -> Result<()> {
+        Ok(())
+    }
+}
 
 impl ParamDeclOp {
     /// Create a new `hw.param_decl`.
@@ -904,13 +1506,27 @@ impl ParamDeclOp {
     format,
     interfaces = [NRegionsInterface<0>, OneResultInterface, NOpdsInterface<0>],
     attributes = (param_ref: StringAttr),
-    verifier = "succ",
 )]
 pub struct ParamValueOp;
+
+impl Verify for ParamValueOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let pref = match self.get_attr_param_ref(ctx) {
+            Some(p) => p,
+            None => return verify_err!(op.loc(), "hw.param_value requires param_ref attribute"),
+        };
+        if pref.as_ref().is_empty() {
+            return verify_err!(op.loc(), "hw.param_value param_ref cannot be empty");
+        }
+        Ok(())
+    }
+}
 
 impl ParamValueOp {
     /// Create a new `hw.param_value`.
     pub fn new(ctx: &mut Context, param_ref: StringAttr, result_type: TypeHandle) -> Self {
+        assert!(!param_ref.as_ref().is_empty(), "hw.param_value param_ref cannot be empty");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -944,13 +1560,27 @@ impl ParamValueOp {
         NResultsInterface<0>,
     ],
     attributes = (path_string: StringAttr),
-    verifier = "succ",
 )]
 pub struct HierPathOp;
+
+impl Verify for HierPathOp {
+    fn verify(&self, ctx: &Context) -> Result<()> {
+        let op = self.get_operation().deref(ctx);
+        let p_str = match self.get_attr_path_string(ctx) {
+            Some(p) => p,
+            None => return verify_err!(op.loc(), "hw.hierpath requires path_string attribute"),
+        };
+        if p_str.as_ref().is_empty() {
+            return verify_err!(op.loc(), "hw.hierpath path_string cannot be empty");
+        }
+        Ok(())
+    }
+}
 
 impl HierPathOp {
     /// Create a new `hw.hierpath`.
     pub fn new(ctx: &mut Context, name: Identifier, path: StringAttr) -> Self {
+        assert!(!path.as_ref().is_empty(), "hw.hierpath path cannot be empty");
         let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![], vec![], vec![], 0);
         let hp = HierPathOp { op };
         hp.set_symbol_name(ctx, name);

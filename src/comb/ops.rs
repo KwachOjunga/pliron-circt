@@ -25,7 +25,7 @@ use pliron::{
     verify_err,
 };
 
-use crate::comb::types::{CombOpExt, verify_i1, verify_integer_type};
+use crate::comb::types::{CombOpExt, get_integer_width, verify_i1, verify_integer_type};
 
 /// Comparison predicate for `comb.icmp`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -216,6 +216,65 @@ fn verify_variadic_bitwise(op: &Operation, ctx: &Context, op_name: &str) -> Resu
     Ok(())
 }
 
+fn assert_binary_arithmetic(ctx: &Context, lhs: Value, rhs: Value, res_ty: TypeHandle, op_name: &str) {
+    let w_lhs = get_integer_width(ctx, lhs.get_type(ctx))
+        .unwrap_or_else(|e| panic!("{op_name} lhs type error: {e}"));
+    let w_rhs = get_integer_width(ctx, rhs.get_type(ctx))
+        .unwrap_or_else(|e| panic!("{op_name} rhs type error: {e}"));
+    assert_eq!(
+        w_lhs, w_rhs,
+        "{op_name} operand width mismatch: lhs has width {w_lhs}, rhs has width {w_rhs}"
+    );
+    let w_res = get_integer_width(ctx, res_ty)
+        .unwrap_or_else(|e| panic!("{op_name} result type error: {e}"));
+    assert_eq!(
+        w_res, w_lhs,
+        "{op_name} result width mismatch: expected width {w_lhs}, found {w_res}"
+    );
+}
+
+fn assert_unary(ctx: &Context, val: Value, res_ty: TypeHandle, op_name: &str) {
+    let in_w = get_integer_width(ctx, val.get_type(ctx))
+        .unwrap_or_else(|e| panic!("{op_name} input type error: {e}"));
+    let res_w = get_integer_width(ctx, res_ty)
+        .unwrap_or_else(|e| panic!("{op_name} result type error: {e}"));
+    assert_eq!(
+        res_w, in_w,
+        "{op_name} result width mismatch: expected width {in_w}, found {res_w}"
+    );
+}
+
+fn assert_reduction(ctx: &Context, val: Value, i1_ty: TypeHandle, op_name: &str) {
+    let _in_w = get_integer_width(ctx, val.get_type(ctx))
+        .unwrap_or_else(|e| panic!("{op_name} input type error: {e}"));
+    let res_w = get_integer_width(ctx, i1_ty)
+        .unwrap_or_else(|e| panic!("{op_name} result type error: {e}"));
+    assert_eq!(
+        res_w, 1,
+        "{op_name} result must be i1, found width {res_w}"
+    );
+}
+
+fn assert_variadic_bitwise(ctx: &Context, inputs: &[Value], res_ty: TypeHandle, op_name: &str) {
+    assert!(!inputs.is_empty(), "{op_name} requires at least one input");
+    let w0 = get_integer_width(ctx, inputs[0].get_type(ctx))
+        .unwrap_or_else(|e| panic!("{op_name} input 0 type error: {e}"));
+    for (i, inp) in inputs.iter().enumerate().skip(1) {
+        let wi = get_integer_width(ctx, inp.get_type(ctx))
+            .unwrap_or_else(|e| panic!("{op_name} input {i} type error: {e}"));
+        assert_eq!(
+            wi, w0,
+            "{op_name} input {i} width ({wi}) != input 0 width ({w0})"
+        );
+    }
+    let w_res = get_integer_width(ctx, res_ty)
+        .unwrap_or_else(|e| panic!("{op_name} result type error: {e}"));
+    assert_eq!(
+        w_res, w0,
+        "{op_name} result width ({w_res}) != input width ({w0})"
+    );
+}
+
 // -----------------------------------------------------------------------------
 // Arithmetic Operations
 // -----------------------------------------------------------------------------
@@ -257,6 +316,7 @@ impl CombOpExt for AddOp {
 impl AddOp {
     /// Create a new `comb.add`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, lhs, rhs, res_ty, "comb.add");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -321,6 +381,7 @@ impl CombOpExt for SubOp {
 impl SubOp {
     /// Create a new `comb.sub`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, lhs, rhs, res_ty, "comb.sub");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -385,6 +446,7 @@ impl CombOpExt for MulOp {
 impl MulOp {
     /// Create a new `comb.mul`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, lhs, rhs, res_ty, "comb.mul");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -449,6 +511,7 @@ impl CombOpExt for DivUOp {
 impl DivUOp {
     /// Create a new `comb.divu`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, lhs, rhs, res_ty, "comb.divu");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -516,6 +579,7 @@ impl CombOpExt for DivSOp {
 impl DivSOp {
     /// Create a new `comb.divs`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, lhs, rhs, res_ty, "comb.divs");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -580,6 +644,7 @@ impl CombOpExt for ModUOp {
 impl ModUOp {
     /// Create a new `comb.modu`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, lhs, rhs, res_ty, "comb.modu");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -647,6 +712,7 @@ impl CombOpExt for ModSOp {
 impl ModSOp {
     /// Create a new `comb.mods`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, lhs, rhs, res_ty, "comb.mods");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -711,6 +777,7 @@ impl CombOpExt for ShlOp {
 impl ShlOp {
     /// Create a new `comb.shl`.
     pub fn new(ctx: &mut Context, val: Value, shift: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, val, shift, res_ty, "comb.shl");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -775,6 +842,7 @@ impl CombOpExt for ShrUOp {
 impl ShrUOp {
     /// Create a new `comb.shru`.
     pub fn new(ctx: &mut Context, val: Value, shift: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, val, shift, res_ty, "comb.shru");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -842,6 +910,7 @@ impl CombOpExt for ShrSOp {
 impl ShrSOp {
     /// Create a new `comb.shrs`.
     pub fn new(ctx: &mut Context, val: Value, shift: Value, res_ty: TypeHandle) -> Self {
+        assert_binary_arithmetic(ctx, val, shift, res_ty, "comb.shrs");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
