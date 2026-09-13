@@ -6,6 +6,10 @@ In software compilers, an unhandled invariant failure typically causes a crash o
 
 To make `pliron-hw` bulletproof against wrongful usage, the compiler must practice **defense-in-depth**: every operation, type, region, and transformation must assert its preconditions and enforce its semantic contract at multiple layers.
 
+The central architectural principle governing defensive enforcement is:
+
+> **"Each semantic question must have one authoritative owner, and lowering must never silently discard information owned by another dialect. Invariants must be validated early, explicitly, and defensively."**
+
 This document provides an exhaustive guide and actionable checklist for peppering assertions and formal verifications across the entire `pliron-hw` codebase.
 
 ---
@@ -36,7 +40,7 @@ This document provides an exhaustive guide and actionable checklist for pepperin
 ┌────────────────────────────────────────────────────────────────────────┐
 │  Tier 3: Pass-Level & Structural Graph Invariants                      │
 │  - Detects combinational cycles, floating wires, multi-driver nets     │
-│  - Validates cross-operation symbol references and module hierarchies  │
+│  - Validates cross-operation symbol references, CDC, and hierarchies   │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,9 +50,9 @@ This document provides an exhaustive guide and actionable checklist for pepperin
 
 | Mechanism | Intended Scope | Failure Consequence | Example Use Case |
 | :--- | :--- | :--- | :--- |
-| **`assert!` / `debug_assert!`** | Rust API constructor preconditions, compiler internal data structures | Immediate panic / crash in debug builds | Calling `Op::new(ctx, ...)` with an empty array of arguments when at least one is required by the API. |
+| **`assert!` / `debug_assert!`** | Rust API constructor preconditions, internal invariants, and compiler bugs | Immediate panic in debug builds | Calling `Op::new(ctx, ...)` with an empty array of arguments when at least one is required by the Rust API. |
 | **`verify_err!`** | Pliron IR verification (`Verify::verify`) | Returns `Err(CompilerError)` with location | User IR has mismatched operand bit widths: `i8` added to `i16`. |
-| **`verify_error!`** | Custom error generation within passes | Returns descriptive diagnostic | Unresolved symbol reference during module instantiation. |
+| **`verify_error!`** | Custom diagnostic generation within passes | Returns structured diagnostic | Unresolved symbol reference during module instantiation or undetected CDC. |
 
 **Rule of Thumb**:
 - If a Rust developer calls an internal function with completely invalid arguments that violate function contracts, use `assert!`.
@@ -72,19 +76,22 @@ This document provides an exhaustive guide and actionable checklist for pepperin
 - [ ] **Input Operand Compatibility**: Operand count and types must exactly match the target module's input port types.
 - [ ] **Result Compatibility**: Result count and types must exactly match the target module's output port types.
 - [ ] **Non-Empty Instance Name**: The instance identifier attribute must not be empty.
+- [ ] **Parameter Binding Check**: All required parameters of the target module must be legally bound with compatible types.
 
 #### `hw.wire`
 - [ ] **Type Legitimacy**: Wire result type must be a valid hardware type (`IntegerType`, `ArrayType`, `StructType`, `UnionType`, `InoutType`).
 - [ ] **Single Driver Rule**: In pure SSA modules, each wire must have exactly one driving assignment.
 
 #### `hw.bitcast`
-- [ ] **Bitwidth Invariance**: Total bitwidth of the input value must **exactly equal** the total bitwidth of the target cast type.
+- [ ] **Strict Bitwidth Invariance**: Total bitwidth of the input value must **exactly equal** the total bitwidth of the target cast type.
+- [ ] **No Width Conversion Guard**: Explicitly assert that `hw.bitcast` is NOT being used to extend or truncate bitwidths (use `comb.zext`, `comb.sext`, or `comb.trunc` instead).
 - [ ] **No-Op Guard**: Casting a type to itself should be flagged or canonicalized away.
 
 #### `hw.array_create`, `hw.array_get`, `hw.array_slice`
 - [ ] **Uniform Element Types**: In `hw.array_create`, every input operand must have the identical element type.
 - [ ] **Index Bounds Checking**: In `hw.array_get` with constant index, assert $0 \le \text{index} < N$.
 - [ ] **Slice Bounds Checking**: In `hw.array_slice`, assert $\text{low\_index} + \text{width} \le N$.
+- [ ] **Packed vs. Unpacked**: Distinguish indexing semantics across packed bit-vectors and unpacked arrays.
 
 ---
 
@@ -93,7 +100,7 @@ This document provides an exhaustive guide and actionable checklist for pepperin
 #### Arithmetic & Logic (`AddOp`, `SubOp`, `MulOp`, `AndOp`, `OrOp`, `XorOp`)
 - [ ] **Width Equality**: $\text{width}(\text{lhs}) == \text{width}(\text{rhs}) == \text{width}(\text{result})$.
 - [ ] **Positive Width**: Assert width $> 0$.
-- [ ] **Signless Requirement**: Integer types must be signless (unless explicit signed arithmetic is invoked).
+- [ ] **No Implicit Sizing**: Reject operations where operands have mismatched widths; operands must be explicitly cast prior to arithmetic.
 
 #### Comparisons (`IcmpOp`)
 - [ ] **Operand Width Match**: $\text{width}(\text{lhs}) == \text{width}(\text{rhs})$.
@@ -105,6 +112,11 @@ This document provides an exhaustive guide and actionable checklist for pepperin
 - [ ] **Branch Type Equality**: $\text{width}(\text{true\_val}) == \text{width}(\text{false\_val}) == \text{width}(\text{result})$.
 - [ ] **Identical Types**: True and false values must share identical Pliron `TypeHandle`.
 
+#### Explicit Width Conversions (`ZextOp`, `SextOp`, `TruncOp`)
+- [ ] **`comb.zext`**: Assert $\text{width}(\text{result}) > \text{width}(\text{input})$.
+- [ ] **`comb.sext`**: Assert $\text{width}(\text{result}) > \text{width}(\text{input})$ and verify signedness interpretation.
+- [ ] **`comb.trunc`**: Assert $\text{width}(\text{result}) < \text{width}(\text{input})$.
+
 #### Bit Extraction & Concatenation (`ExtractOp`, `ConcatOp`)
 - [ ] **Extraction Range Check**: Assert $\text{low\_bit} + \text{width} \le \text{width}(\text{input})$.
 - [ ] **Concatenation Width Sum**: Assert $\text{width}(\text{result}) == \sum_{i} \text{width}(\text{input}_i)$.
@@ -114,32 +126,45 @@ This document provides an exhaustive guide and actionable checklist for pepperin
 
 ### 4.3 `seq` Dialect Operations
 
-#### Registers (`CompRegOp`, `FirRegOp`)
-- [ ] **Clock Type Enforcement**: The `clk` operand must strictly be `!seq.clock` (or validated 1-bit clock).
+#### State Registers (`CompRegOp`, `FirRegOp`, `RegOp`)
+- [ ] **Clock Type Enforcement**: The `clk` operand must strictly be `!seq.clock`.
+- [ ] **Clock Edge Attribute**: Edge must be explicitly `"posedge"` or `"negedge"`.
 - [ ] **Data Width Match**: $\text{type}(\text{input}) == \text{type}(\text{result})$.
 - [ ] **Reset Contract (`FirRegOp`)**:
   - Reset signal must be `!seq.reset` or `i1`.
   - Reset value type must exactly equal data input type: $\text{type}(\text{reset\_value}) == \text{type}(\text{input})$.
   - Reset polarity attribute must be strictly `"active_high"` or `"active_low"`.
+  - Reset mode must be strictly `"async"` or `"sync"`.
+  - Reset dominance: Reset strictly dominates enable.
 - [ ] **Enable Signal**: If enable is present, its type must be strictly `i1`.
+
+#### Latches (`seq.latch`)
+- [ ] **Level-Sensitive Enable**: Assert enable signal is `i1`.
+- [ ] **Data Type Match**: $\text{type}(\text{input}) == \text{type}(\text{result})$.
+- [ ] **No Clock Operand**: Explicitly assert that `seq.latch` does NOT accept an edge-triggered clock.
 
 #### Clock Gating (`ClockGateOp`)
 - [ ] **Input Clock**: Operand 0 must be `!seq.clock`.
 - [ ] **Enable**: Operand 1 must be `i1`.
 - [ ] **Result**: Result must be `!seq.clock`.
 
-#### High-Level Memory (`HLMemOp`, `HLMemReadOp`, `HLMemWriteOp`)
+#### Clock-Domain Crossing (`seq.synchronizer`, `seq.cdc`)
+- [ ] **Dual Clock Verification**: Source and destination clock domains must be explicitly defined and distinct.
+- [ ] **Type Parity**: Input data type must equal output data type.
+
+#### High-Level Memory (`HLMemOp`, `HLMemReadOp`, `HLMemWriteOp`, `seq.mem`)
 - [ ] **Memory Allocation**:
   - Memory depth must be $> 0$.
   - Element bitwidth must be $> 0$.
 - [ ] **Memory Read**:
   - Address bitwidth must be $\ge \lceil \log_2(\text{depth}) \rceil$.
   - Result type must match memory element type.
-  - Clock operand must be valid clock type if read is synchronous.
+  - Clock operand must be valid `!seq.clock` if read is synchronous.
 - [ ] **Memory Write**:
   - Write enable operand must be strictly `i1`.
   - Data operand type must exactly match memory element type.
-  - Clock operand must be valid clock type.
+  - Clock operand must be valid `!seq.clock`.
+- [ ] **Hazard Collision Contract**: Read-during-write policy must be one of `"read_first"`, `"write_first"`, `"no_change"`, or `"undefined"`.
 
 ---
 
@@ -174,11 +199,11 @@ This document provides an exhaustive guide and actionable checklist for pepperin
 ## 5. Structural & Pass-Level Assertions
 
 ### 5.1 Combinational Cycle Detection (Acyclic Assert)
-Before synthesizing or lowering `comb` trees:
+Before synthesizing or lowering `comb` trees within an `hw.module`:
 ```rust
 pub fn assert_no_combinational_cycles(ctx: &Context, module: ModuleOp) -> Result<()> {
     // Perform Tarjan's or Kosaraju's SCC algorithm on combinational use-def edges.
-    // If any cycle exists without a seq.compreg / seq.firreg boundary:
+    // If any cycle exists without an intervening seq.compreg / seq.firreg boundary:
     // return verify_err!(loc, "detected illegal combinational feedback loop");
     Ok(())
 }
@@ -189,6 +214,18 @@ For each wire or signal in `hw.module`:
 ```rust
 pub fn assert_single_driver(ctx: &Context, wire: Value) -> Result<()> {
     // Ensure the wire has exactly one driving operation unless typed as !hw.inout
+    Ok(())
+}
+```
+
+### 5.3 Clock-Domain Crossing Invariant Check
+Validate dataflow paths across clock domains:
+```rust
+pub fn assert_no_implicit_cdc(ctx: &Context, module: ModuleOp) -> Result<()> {
+    // Trace use-def chains from sequential state registers.
+    // If a register in clock domain A feeds a register in clock domain B without
+    // passing through an explicit seq.synchronizer or CDC barrier:
+    // return verify_err!(loc, "detected illegal implicit clock-domain crossing");
     Ok(())
 }
 ```
