@@ -547,7 +547,7 @@ endmodule
     let rendered = render_module(&ctx, &module).expect("parsed module should render");
     println!("{}", &rendered);
     assert!(rendered.contains("module alu_block"));
-    // assert!(rendered.contains("assign temp = a + b;"));
+    assert!(rendered.contains("assign temp = a + b;"));
 }
 
 #[test]
@@ -575,6 +575,6 @@ endmodule
     let rendered = render_module(&ctx, &module).expect("parsed module should render");
     println!("{}", &rendered);
     assert!(rendered.contains("module d_flip_flop"));
-    // assert!(rendered.contains("always_ff @(posedge clk)"));
-    // assert!(rendered.contains("state <= d;"));
+    assert!(rendered.contains("always_ff @(posedge clk)"));
+    assert!(rendered.contains("state <= d;"));
 }

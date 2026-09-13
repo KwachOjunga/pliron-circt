@@ -437,6 +437,9 @@ impl<'a> Parser<'a> {
         for p in &ports {
             if p.is_input {
                 let arg_val = module.get_input(self.ctx, in_idx);
+                if let Ok(id) = p.name.as_str().try_into() {
+                    arg_val.set_name(self.ctx, Some(id));
+                }
                 self.scope.insert(p.name.clone(), arg_val);
                 in_idx += 1;
             }
@@ -459,6 +462,9 @@ impl<'a> Parser<'a> {
                         IntegerType::get(self.ctx, width, Signedness::Signless).into();
                     let decl_op = LogicDeclOp::new(self.ctx, name.as_str(), ty);
                     let res = decl_op.result(self.ctx);
+                    if let Ok(id) = name.as_str().try_into() {
+                        res.set_name(self.ctx, Some(id));
+                    }
                     decl_op.get_operation().insert_at_back(body, self.ctx);
                     self.scope.insert(name, res);
                 }
@@ -472,6 +478,9 @@ impl<'a> Parser<'a> {
                         IntegerType::get(self.ctx, width, Signedness::Signless).into();
                     let decl_op = WireDeclOp::new(self.ctx, name.as_str(), ty);
                     let res = decl_op.result(self.ctx);
+                    if let Ok(id) = name.as_str().try_into() {
+                        res.set_name(self.ctx, Some(id));
+                    }
                     decl_op.get_operation().insert_at_back(body, self.ctx);
                     self.scope.insert(name, res);
                 }
@@ -484,6 +493,9 @@ impl<'a> Parser<'a> {
 
                     let assign_op = AssignOp::new(self.ctx, target_name.as_str(), expr_val);
                     let assigned = assign_op.result(self.ctx);
+                    if let Ok(id) = target_name.as_str().try_into() {
+                        assigned.set_name(self.ctx, Some(id));
+                    }
                     assign_op.get_operation().insert_at_back(body, self.ctx);
                     self.scope.insert(target_name, assigned);
                 }

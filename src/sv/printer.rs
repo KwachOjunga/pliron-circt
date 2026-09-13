@@ -27,8 +27,9 @@ use crate::{
         types::{ClockType, MemoryType, ResetType},
     },
     sv::ops::{
-        AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, InstanceOp, LogicDeclOp, MemDeclOp,
-        MemReadOp, MemWriteOp,
+        AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, BinaryExprOp, BpaOp, CaseOp,
+        ConcatExprOp, ConstantExprOp, IndexExprOp, InstanceOp, LogicDeclOp, MemDeclOp, MemReadOp,
+        MemWriteOp, MuxExprOp, NbaOp, RegDeclOp, SliceExprOp, UnaryExprOp, WireDeclOp,
     },
 };
 
@@ -37,6 +38,69 @@ fn value_name(ctx: &Context, value: Value) -> String {
         .given_name(ctx)
         .map(|name| name.to_string())
         .unwrap_or_else(|| value.unique_name(ctx).to_string())
+}
+
+fn render_expr(ctx: &Context, value: Value) -> String {
+    if let Some(defining_op) = value.defining_op() {
+        if let Some(bin) = Operation::get_op::<BinaryExprOp>(defining_op, ctx) {
+            return format!(
+                "{} {} {}",
+                render_expr(ctx, bin.lhs(ctx)),
+                bin.operator(ctx).as_ref(),
+                render_expr(ctx, bin.rhs(ctx))
+            );
+        }
+        if let Some(un) = Operation::get_op::<UnaryExprOp>(defining_op, ctx) {
+            return format!(
+                "{}{}",
+                un.operator(ctx).as_ref(),
+                render_expr(ctx, un.val(ctx))
+            );
+        }
+        if let Some(constant) = Operation::get_op::<ConstantExprOp>(defining_op, ctx) {
+            let val: u64 = constant.value(ctx).value().to_u64();
+            let width: u64 = constant.width(ctx).value().to_u64();
+            if width == 32 || width == 0 {
+                return format!("{}", val);
+            } else {
+                return format!("{}'d{}", width, val);
+            }
+        }
+        if let Some(mux) = Operation::get_op::<MuxExprOp>(defining_op, ctx) {
+            return format!(
+                "{} ? {} : {}",
+                render_expr(ctx, mux.cond(ctx)),
+                render_expr(ctx, mux.true_val(ctx)),
+                render_expr(ctx, mux.false_val(ctx))
+            );
+        }
+        if let Some(concat) = Operation::get_op::<ConcatExprOp>(defining_op, ctx) {
+            let in_strs: Vec<String> = concat
+                .inputs(ctx)
+                .into_iter()
+                .map(|v| render_expr(ctx, v))
+                .collect();
+            return format!("{{{}}}", in_strs.join(", "));
+        }
+        if let Some(slice) = Operation::get_op::<SliceExprOp>(defining_op, ctx) {
+            let low: u64 = slice.low_bit(ctx).value().to_u64();
+            let width: u64 = slice.width(ctx).value().to_u64();
+            if width == 1 {
+                return format!("{}[{}]", render_expr(ctx, slice.val(ctx)), low);
+            } else {
+                let high = low + width - 1;
+                return format!("{}[{}:{}]", render_expr(ctx, slice.val(ctx)), high, low);
+            }
+        }
+        if let Some(idx) = Operation::get_op::<IndexExprOp>(defining_op, ctx) {
+            return format!(
+                "{}[{}]",
+                render_expr(ctx, idx.val(ctx)),
+                render_expr(ctx, idx.index(ctx))
+            );
+        }
+    }
+    value_name(ctx, value)
 }
 
 fn sv_type_handle(ctx: &Context, ty: pliron::r#type::TypeHandle) -> String {
@@ -94,13 +158,13 @@ fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<S
             comb.get_attr_comb_target(ctx)
                 .expect("verified always_comb target")
                 .as_ref(),
-            value_name(ctx, op.get_operand(0))
+            render_expr(ctx, op.get_operand(0))
         ));
     }
     if let Some(instance) = Operation::get_op::<InstanceOp>(op_ptr, ctx) {
         let op = instance.get_operation().deref(ctx);
         let inputs = (0..op.get_num_operands())
-            .map(|index| value_name(ctx, op.get_operand(index)))
+            .map(|index| render_expr(ctx, op.get_operand(index)))
             .collect::<Vec<_>>()
             .join(", ");
         return Some(format!(
@@ -122,7 +186,21 @@ fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<S
         return Some(format!(
             "assign {} = {};",
             assign.target(ctx).as_ref(),
-            value_name(ctx, value)
+            render_expr(ctx, value)
+        ));
+    }
+    if let Some(bpa) = Operation::get_op::<BpaOp>(op_ptr, ctx) {
+        return Some(format!(
+            "{} = {};",
+            bpa.target(ctx).as_ref(),
+            render_expr(ctx, bpa.value(ctx))
+        ));
+    }
+    if let Some(nba) = Operation::get_op::<NbaOp>(op_ptr, ctx) {
+        return Some(format!(
+            "{} <= {};",
+            nba.target(ctx).as_ref(),
+            render_expr(ctx, nba.value(ctx))
         ));
     }
     if let Some(declaration) = Operation::get_op::<LogicDeclOp>(op_ptr, ctx) {
@@ -133,6 +211,20 @@ fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<S
                 .get_attr_logic_target(ctx)
                 .expect("verified logic target")
                 .as_ref()
+        ));
+    }
+    if let Some(declaration) = Operation::get_op::<WireDeclOp>(op_ptr, ctx) {
+        return Some(format!(
+            "{} {};",
+            sv_decl_type(ctx, declaration.result(ctx), "wire"),
+            declaration.target(ctx).as_ref()
+        ));
+    }
+    if let Some(declaration) = Operation::get_op::<RegDeclOp>(op_ptr, ctx) {
+        return Some(format!(
+            "{} {};",
+            sv_decl_type(ctx, declaration.result(ctx), "reg"),
+            declaration.target(ctx).as_ref()
         ));
     }
     if let Some(memory) = Operation::get_op::<MemDeclOp>(op_ptr, ctx) {
@@ -162,7 +254,7 @@ fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<S
                 .expect("verified read target")
                 .as_ref(),
             memory_name(ctx, op.get_operand(1)),
-            value_name(ctx, op.get_operand(2))
+            render_expr(ctx, op.get_operand(2))
         ));
     }
     if let Some(write) = Operation::get_op::<MemWriteOp>(op_ptr, ctx) {
@@ -170,10 +262,10 @@ fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<S
         return Some(format!(
             "always_ff @(posedge {}) begin\n  if ({})\n    {}[{}] <= {};\nend",
             value_name(ctx, op.get_operand(0)),
-            value_name(ctx, op.get_operand(4)),
+            render_expr(ctx, op.get_operand(4)),
             memory_name(ctx, op.get_operand(1)),
-            value_name(ctx, op.get_operand(2)),
-            value_name(ctx, op.get_operand(3))
+            render_expr(ctx, op.get_operand(2)),
+            render_expr(ctx, op.get_operand(3))
         ));
     }
     if let Some(always) = Operation::get_op::<AlwaysFfNoResetOp>(op_ptr, ctx) {
@@ -185,7 +277,7 @@ fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<S
                 .get_attr_ff_nr_target(ctx)
                 .expect("verified always_ff_no_reset target")
                 .as_ref(),
-            value_name(ctx, op.get_operand(1))
+            render_expr(ctx, op.get_operand(1))
         ));
     }
     if let Some(always) = Operation::get_op::<AlwaysFfOp>(op_ptr, ctx) {
@@ -227,12 +319,12 @@ fn render_op(ctx: &Context, op_ptr: pliron::context::Ptr<Operation>) -> Option<S
                 .get_attr_ff_target(ctx)
                 .expect("verified always_ff target")
                 .as_ref(),
-            value_name(ctx, op.get_operand(3)),
+            render_expr(ctx, op.get_operand(3)),
             always
                 .get_attr_ff_target(ctx)
                 .expect("verified always_ff target")
                 .as_ref(),
-            value_name(ctx, op.get_operand(1))
+            render_expr(ctx, op.get_operand(1))
         ));
     }
     None
@@ -265,52 +357,119 @@ pub fn render_module(ctx: &Context, module: &ModuleOp) -> Result<String> {
     }
     output.push_str(");\n");
     let mut declarations = Vec::new();
+    let mut declared_names = rustc_hash::FxHashSet::default();
+
+    for index in 0..module.num_inputs(ctx) {
+        let input = module.get_input(ctx, index);
+        declared_names.insert(value_name(ctx, input));
+    }
+
     let mut statements = Vec::new();
     for op_ptr in module.get_body(ctx).deref(ctx).iter(ctx) {
-        if let Some(assign) = Operation::get_op::<AssignOp>(op_ptr, ctx) {
-            let op = assign.get_operation().deref(ctx);
-            declarations.push(format!(
-                "{} {};",
-                sv_decl_type(ctx, op.get_operand(0), "wire"),
-                assign.target(ctx).as_ref()
-            ));
+        if let Some(decl) = Operation::get_op::<LogicDeclOp>(op_ptr, ctx) {
+            let target = decl
+                .get_attr_logic_target(ctx)
+                .expect("verified logic target")
+                .as_ref()
+                .to_string();
+            if declared_names.insert(target.clone()) {
+                declarations.push(format!(
+                    "{} {};",
+                    sv_decl_type(ctx, decl.result(ctx), "logic"),
+                    target
+                ));
+            }
+        } else if let Some(decl) = Operation::get_op::<WireDeclOp>(op_ptr, ctx) {
+            let target = decl.target(ctx).as_ref().to_string();
+            if declared_names.insert(target.clone()) {
+                declarations.push(format!(
+                    "{} {};",
+                    sv_decl_type(ctx, decl.result(ctx), "wire"),
+                    target
+                ));
+            }
+        } else if let Some(decl) = Operation::get_op::<RegDeclOp>(op_ptr, ctx) {
+            let target = decl.target(ctx).as_ref().to_string();
+            if declared_names.insert(target.clone()) {
+                declarations.push(format!(
+                    "{} {};",
+                    sv_decl_type(ctx, decl.result(ctx), "reg"),
+                    target
+                ));
+            }
+        } else if let Some(assign) = Operation::get_op::<AssignOp>(op_ptr, ctx) {
+            let target = assign.target(ctx).as_ref().to_string();
+            if declared_names.insert(target.clone()) {
+                let op = assign.get_operation().deref(ctx);
+                declarations.push(format!(
+                    "{} {};",
+                    sv_decl_type(ctx, op.get_operand(0), "wire"),
+                    target
+                ));
+            }
         } else if let Some(always) = Operation::get_op::<AlwaysFfOp>(op_ptr, ctx) {
-            let op = always.get_operation().deref(ctx);
-            declarations.push(format!(
-                "{} {};",
-                sv_decl_type(ctx, op.get_operand(1), "logic"),
-                always
-                    .get_attr_ff_target(ctx)
-                    .expect("verified always_ff target")
-                    .as_ref()
-            ));
+            let target = always
+                .get_attr_ff_target(ctx)
+                .expect("verified always_ff target")
+                .as_ref()
+                .to_string();
+            if declared_names.insert(target.clone()) {
+                let op = always.get_operation().deref(ctx);
+                declarations.push(format!(
+                    "{} {};",
+                    sv_decl_type(ctx, op.get_operand(1), "logic"),
+                    target
+                ));
+            }
         } else if let Some(always) = Operation::get_op::<AlwaysFfNoResetOp>(op_ptr, ctx) {
-            let op = always.get_operation().deref(ctx);
-            declarations.push(format!(
-                "{} {};",
-                sv_decl_type(ctx, op.get_operand(1), "logic"),
-                always
-                    .get_attr_ff_nr_target(ctx)
-                    .expect("verified always_ff_no_reset target")
-                    .as_ref()
-            ));
+            let target = always
+                .get_attr_ff_nr_target(ctx)
+                .expect("verified always_ff_no_reset target")
+                .as_ref()
+                .to_string();
+            if declared_names.insert(target.clone()) {
+                let op = always.get_operation().deref(ctx);
+                declarations.push(format!(
+                    "{} {};",
+                    sv_decl_type(ctx, op.get_operand(1), "logic"),
+                    target
+                ));
+            }
         } else if let Some(read) = Operation::get_op::<MemReadOp>(op_ptr, ctx) {
-            declarations.push(format!(
-                "{} {};",
-                sv_decl_type(ctx, read.result(ctx), "logic"),
-                read.get_attr_memory_read_target(ctx)
-                    .expect("verified read target")
-                    .as_ref()
-            ));
+            let target = read
+                .get_attr_memory_read_target(ctx)
+                .expect("verified read target")
+                .as_ref()
+                .to_string();
+            if declared_names.insert(target.clone()) {
+                declarations.push(format!(
+                    "{} {};",
+                    sv_decl_type(ctx, read.result(ctx), "logic"),
+                    target
+                ));
+            }
         } else if let Some(comb) = Operation::get_op::<AlwaysCombOp>(op_ptr, ctx) {
-            declarations.push(format!(
-                "{} {};",
-                sv_decl_type(ctx, comb.get_operation().deref(ctx).get_operand(0), "logic"),
-                comb.get_attr_comb_target(ctx)
-                    .expect("verified comb target")
-                    .as_ref()
-            ));
+            let target = comb
+                .get_attr_comb_target(ctx)
+                .expect("verified comb target")
+                .as_ref()
+                .to_string();
+            if declared_names.insert(target.clone()) {
+                declarations.push(format!(
+                    "{} {};",
+                    sv_decl_type(ctx, comb.get_operation().deref(ctx).get_operand(0), "logic"),
+                    target
+                ));
+            }
         }
+
+        if Operation::is_op::<LogicDeclOp>(op_ptr, ctx)
+            || Operation::is_op::<WireDeclOp>(op_ptr, ctx)
+            || Operation::is_op::<RegDeclOp>(op_ptr, ctx)
+        {
+            continue;
+        }
+
         if let Some(statement) = render_op(ctx, op_ptr) {
             statements.push(statement);
         } else if !Operation::is_op::<crate::hw::ops::OutputOp>(op_ptr, ctx)
@@ -319,6 +478,14 @@ pub fn render_module(ctx: &Context, module: &ModuleOp) -> Result<String> {
             && !Operation::is_op::<HLMemOp>(op_ptr, ctx)
             && !Operation::is_op::<HLMemReadOp>(op_ptr, ctx)
             && !Operation::is_op::<HLMemWriteOp>(op_ptr, ctx)
+            && !Operation::is_op::<BinaryExprOp>(op_ptr, ctx)
+            && !Operation::is_op::<UnaryExprOp>(op_ptr, ctx)
+            && !Operation::is_op::<ConstantExprOp>(op_ptr, ctx)
+            && !Operation::is_op::<MuxExprOp>(op_ptr, ctx)
+            && !Operation::is_op::<ConcatExprOp>(op_ptr, ctx)
+            && !Operation::is_op::<SliceExprOp>(op_ptr, ctx)
+            && !Operation::is_op::<IndexExprOp>(op_ptr, ctx)
+            && !Operation::is_op::<CaseOp>(op_ptr, ctx)
         {
             return verify_err!(
                 op_ptr.deref(ctx).loc(),
