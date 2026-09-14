@@ -10,7 +10,7 @@ keywords = ["pliron", "hardware", "circt", "compiler", "rtl"]
 
 [dependencies]
 # rev e66025a
-pliron =  { path="../pliron", version =  "0.17.0"}
+pliron =  {git = "https://github.com/pliron-org/pliron", rev = "e66025a"}
 thiserror = "2"
 log = { version = "0" }
 rustc-hash = "2"

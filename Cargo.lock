@@ -439,8 +439,7 @@ checksum = "0b61fbf7ec37342ce171d9f5e3b82be74bda6c4e84e3b28338a03d553913e6aa"
 [[package]]
 name = "pliron"
 version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e51eb8628227038376c81dcb1752db90a90af24a1e38b27582c7dab235149d7"
+source = "git+https://github.com/pliron-org/pliron?rev=e66025a#e66025a6cdd2eee46fd18f494a5176308033f039"
 dependencies = [
  "awint",
  "combine",
@@ -467,8 +466,7 @@ dependencies = [
 [[package]]
 name = "pliron-derive"
 version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f878ccd6bfd39a9373175774b96785daab296dc1870bc72ff7d285151f613a56"
+source = "git+https://github.com/pliron-org/pliron?rev=e66025a#e66025a6cdd2eee46fd18f494a5176308033f039"
 dependencies = [
  "combine",
  "convert_case",

@@ -31,15 +31,13 @@ use pliron::{
     operation::Operation,
     parsable::{Parsable, ParseResult, StateStream},
     printable::{self, Printable},
-    r#type::{TypeHandle, Typed},
     result::Result,
+    r#type::{TypeHandle, Typed},
     value::Value,
     verify_err,
 };
 
-use super::types::{
-    ArrayType, EnumType, InoutType, IntType, StructType, TypeAliasType, UnionType,
-};
+use super::types::{ArrayType, EnumType, InoutType, IntType, StructType, TypeAliasType, UnionType};
 
 /// Compute the total bitwidth of a hardware type, if statically known.
 pub fn compute_type_bitwidth(ctx: &Context, ty: TypeHandle) -> Option<u64> {
@@ -106,7 +104,12 @@ impl Verify for ModuleOp {
         let region = self.get_region(ctx);
         let block_ptr = match region.deref(ctx).get_entry_block() {
             Some(b) => b,
-            None => return verify_err!(op.loc(), "hw.module body region must contain at least one block"),
+            None => {
+                return verify_err!(
+                    op.loc(),
+                    "hw.module body region must contain at least one block"
+                );
+            }
         };
         let block = block_ptr.deref(ctx);
         if block.get_head().is_some() && block.get_terminator(ctx).is_none() {
@@ -249,7 +252,7 @@ impl OutputOp {
     }
 
     /// Get the number of output ports driven by this terminator.
-    pub fn num_outputs(&self, ctx: &Context) -> usize {
+    pub fn get_num_outputs(&self, ctx: &Context) -> usize {
         self.get_operation().deref(ctx).get_num_operands()
     }
 
@@ -295,7 +298,10 @@ impl ConstantOp {
     /// Create a new `hw.constant` producing a constant value.
     pub fn new(ctx: &mut Context, value_attr: IntegerAttr) -> Self {
         let ty = value_attr.get_type();
-        assert!(ty.deref(ctx).width() > 0, "hw.constant width must be non-zero");
+        assert!(
+            ty.deref(ctx).width() > 0,
+            "hw.constant width must be non-zero"
+        );
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -351,7 +357,10 @@ impl InstanceOp {
         inputs: Vec<Value>,
         output_types: Vec<TypeHandle>,
     ) -> Self {
-        assert!(!instance_name.as_ref().is_empty(), "hw.instance instance_name cannot be empty");
+        assert!(
+            !instance_name.as_ref().is_empty(),
+            "hw.instance instance_name cannot be empty"
+        );
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -569,7 +578,9 @@ impl Verify for ConcatOp {
             let opd_ty = op.get_operand(i).get_type(ctx);
             match compute_type_bitwidth(ctx, opd_ty) {
                 Some(w) => sum_w += w,
-                None => return verify_err!(op.loc(), "hw.concat operand {} has unknown bitwidth", i),
+                None => {
+                    return verify_err!(op.loc(), "hw.concat operand {} has unknown bitwidth", i);
+                }
             }
         }
         let res_ty = op.get_result(0).get_type(ctx);
@@ -593,7 +604,10 @@ impl Verify for ConcatOp {
 impl ConcatOp {
     /// Create a new `hw.concat` concatenating `inputs` into `result_type`.
     pub fn new(ctx: &mut Context, inputs: Vec<Value>, result_type: TypeHandle) -> Self {
-        assert!(!inputs.is_empty(), "hw.concat requires at least one operand");
+        assert!(
+            !inputs.is_empty(),
+            "hw.concat requires at least one operand"
+        );
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -721,11 +735,7 @@ impl Verify for ArrayCreateOp {
         for i in 0..op.get_num_operands() {
             let opd_ty = op.get_operand(i).get_type(ctx);
             if opd_ty != arr_ty.element_type() {
-                return verify_err!(
-                    op.loc(),
-                    "hw.array_create element {} type mismatch",
-                    i
-                );
+                return verify_err!(op.loc(), "hw.array_create element {} type mismatch", i);
             }
         }
         Ok(())
@@ -735,7 +745,10 @@ impl Verify for ArrayCreateOp {
 impl ArrayCreateOp {
     /// Create a new `hw.array_create` from elements into `array_type`.
     pub fn new(ctx: &mut Context, elements: Vec<Value>, array_type: TypeHandle) -> Self {
-        assert!(!elements.is_empty(), "hw.array_create requires at least one element");
+        assert!(
+            !elements.is_empty(),
+            "hw.array_create requires at least one element"
+        );
         if let Some(arr_ty) = array_type.deref(ctx).downcast_ref::<ArrayType>() {
             assert_eq!(
                 elements.len() as u64,
@@ -927,7 +940,10 @@ impl Verify for ArrayConcatOp {
 impl ArrayConcatOp {
     /// Create a new `hw.array_concat`.
     pub fn new(ctx: &mut Context, arrays: Vec<Value>, result_type: TypeHandle) -> Self {
-        assert!(!arrays.is_empty(), "hw.array_concat requires at least one operand");
+        assert!(
+            !arrays.is_empty(),
+            "hw.array_concat requires at least one operand"
+        );
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -1079,7 +1095,9 @@ impl Verify for StructExtractOp {
         let op = self.get_operation().deref(ctx);
         let f_name = match self.get_attr_field_name(ctx) {
             Some(f) => f,
-            None => return verify_err!(op.loc(), "hw.struct_extract requires field_name attribute"),
+            None => {
+                return verify_err!(op.loc(), "hw.struct_extract requires field_name attribute");
+            }
         };
         if f_name.as_ref().is_empty() {
             return verify_err!(op.loc(), "hw.struct_extract field_name cannot be empty");
@@ -1090,7 +1108,11 @@ impl Verify for StructExtractOp {
             Some(s) => s,
             None => return verify_err!(op.loc(), "hw.struct_extract operand must be a StructType"),
         };
-        let field = match st_ty.fields().iter().find(|f| f.name.to_string() == *f_name.as_ref()) {
+        let field = match st_ty
+            .fields()
+            .iter()
+            .find(|f| f.name.to_string() == *f_name.as_ref())
+        {
             Some(f) => f,
             None => {
                 return verify_err!(
@@ -1119,7 +1141,10 @@ impl StructExtractOp {
         field_name: StringAttr,
         field_type: TypeHandle,
     ) -> Self {
-        assert!(!field_name.as_ref().is_empty(), "hw.struct_extract field_name cannot be empty");
+        assert!(
+            !field_name.as_ref().is_empty(),
+            "hw.struct_extract field_name cannot be empty"
+        );
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -1153,7 +1178,9 @@ impl Verify for StructInjectOp {
         let op = self.get_operation().deref(ctx);
         let f_name = match self.get_attr_target_field(ctx) {
             Some(f) => f,
-            None => return verify_err!(op.loc(), "hw.struct_inject requires target_field attribute"),
+            None => {
+                return verify_err!(op.loc(), "hw.struct_inject requires target_field attribute");
+            }
         };
         if f_name.as_ref().is_empty() {
             return verify_err!(op.loc(), "hw.struct_inject target_field cannot be empty");
@@ -1162,9 +1189,15 @@ impl Verify for StructInjectOp {
         let st_val_ty_ref = st_val_ty.deref(ctx);
         let st_ty = match st_val_ty_ref.downcast_ref::<StructType>() {
             Some(s) => s,
-            None => return verify_err!(op.loc(), "hw.struct_inject operand 0 must be a StructType"),
+            None => {
+                return verify_err!(op.loc(), "hw.struct_inject operand 0 must be a StructType");
+            }
         };
-        let field = match st_ty.fields().iter().find(|f| f.name.to_string() == *f_name.as_ref()) {
+        let field = match st_ty
+            .fields()
+            .iter()
+            .find(|f| f.name.to_string() == *f_name.as_ref())
+        {
             Some(f) => f,
             None => {
                 return verify_err!(
@@ -1201,7 +1234,10 @@ impl StructInjectOp {
         new_val: Value,
         struct_type: TypeHandle,
     ) -> Self {
-        assert!(!field_name.as_ref().is_empty(), "hw.struct_inject target_field cannot be empty");
+        assert!(
+            !field_name.as_ref().is_empty(),
+            "hw.struct_inject target_field cannot be empty"
+        );
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -1338,7 +1374,11 @@ impl Verify for UnionCreateOp {
             Some(u) => u,
             None => return verify_err!(op.loc(), "hw.union_create result must be a UnionType"),
         };
-        let field = match u_ty.fields().iter().find(|f| f.name.to_string() == *tag.as_ref()) {
+        let field = match u_ty
+            .fields()
+            .iter()
+            .find(|f| f.name.to_string() == *tag.as_ref())
+        {
             Some(f) => f,
             None => {
                 return verify_err!(
@@ -1368,7 +1408,10 @@ impl UnionCreateOp {
         field_name: StringAttr,
         union_type: TypeHandle,
     ) -> Self {
-        assert!(!field_name.as_ref().is_empty(), "hw.union_create field_name cannot be empty");
+        assert!(
+            !field_name.as_ref().is_empty(),
+            "hw.union_create field_name cannot be empty"
+        );
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -1402,7 +1445,9 @@ impl Verify for UnionExtractOp {
         let op = self.get_operation().deref(ctx);
         let tag = match self.get_attr_extract_tag(ctx) {
             Some(t) => t,
-            None => return verify_err!(op.loc(), "hw.union_extract requires extract_tag attribute"),
+            None => {
+                return verify_err!(op.loc(), "hw.union_extract requires extract_tag attribute");
+            }
         };
         if tag.as_ref().is_empty() {
             return verify_err!(op.loc(), "hw.union_extract extract_tag cannot be empty");
@@ -1413,7 +1458,11 @@ impl Verify for UnionExtractOp {
             Some(u) => u,
             None => return verify_err!(op.loc(), "hw.union_extract operand must be a UnionType"),
         };
-        let field = match u_ty.fields().iter().find(|f| f.name.to_string() == *tag.as_ref()) {
+        let field = match u_ty
+            .fields()
+            .iter()
+            .find(|f| f.name.to_string() == *tag.as_ref())
+        {
             Some(f) => f,
             None => {
                 return verify_err!(
@@ -1443,7 +1492,10 @@ impl UnionExtractOp {
         field_name: StringAttr,
         field_type: TypeHandle,
     ) -> Self {
-        assert!(!field_name.as_ref().is_empty(), "hw.union_extract field_name cannot be empty");
+        assert!(
+            !field_name.as_ref().is_empty(),
+            "hw.union_extract field_name cannot be empty"
+        );
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -1526,7 +1578,10 @@ impl Verify for ParamValueOp {
 impl ParamValueOp {
     /// Create a new `hw.param_value`.
     pub fn new(ctx: &mut Context, param_ref: StringAttr, result_type: TypeHandle) -> Self {
-        assert!(!param_ref.as_ref().is_empty(), "hw.param_value param_ref cannot be empty");
+        assert!(
+            !param_ref.as_ref().is_empty(),
+            "hw.param_value param_ref cannot be empty"
+        );
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -1580,7 +1635,10 @@ impl Verify for HierPathOp {
 impl HierPathOp {
     /// Create a new `hw.hierpath`.
     pub fn new(ctx: &mut Context, name: Identifier, path: StringAttr) -> Self {
-        assert!(!path.as_ref().is_empty(), "hw.hierpath path cannot be empty");
+        assert!(
+            !path.as_ref().is_empty(),
+            "hw.hierpath path cannot be empty"
+        );
         let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![], vec![], vec![], 0);
         let hp = HierPathOp { op };
         hp.set_symbol_name(ctx, name);
