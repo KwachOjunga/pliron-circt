@@ -8,8 +8,15 @@ repository = "https://github.com/pliron-org/pliron-hw"
 categories = ["compilers"]
 keywords = ["pliron", "hardware", "circt", "compiler", "rtl"]
 
+
+[features]
+default = ["sv", "hw", "comb", "seq"]
+sv = []
+hw = []
+comb = []
+seq = []
+
 [dependencies]
-# rev e66025a
 pliron =  {git = "https://github.com/pliron-org/pliron", rev = "e66025a"}
 thiserror = "2"
 log = { version = "0" }
