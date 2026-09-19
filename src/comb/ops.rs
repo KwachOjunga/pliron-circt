@@ -216,7 +216,13 @@ fn verify_variadic_bitwise(op: &Operation, ctx: &Context, op_name: &str) -> Resu
     Ok(())
 }
 
-fn assert_binary_arithmetic(ctx: &Context, lhs: Value, rhs: Value, res_ty: TypeHandle, op_name: &str) {
+fn assert_binary_arithmetic(
+    ctx: &Context,
+    lhs: Value,
+    rhs: Value,
+    res_ty: TypeHandle,
+    op_name: &str,
+) {
     let w_lhs = get_integer_width(ctx, lhs.get_type(ctx))
         .unwrap_or_else(|e| panic!("{op_name} lhs type error: {e}"));
     let w_rhs = get_integer_width(ctx, rhs.get_type(ctx))
@@ -233,6 +239,7 @@ fn assert_binary_arithmetic(ctx: &Context, lhs: Value, rhs: Value, res_ty: TypeH
     );
 }
 
+#[allow(dead_code)]
 fn assert_unary(ctx: &Context, val: Value, res_ty: TypeHandle, op_name: &str) {
     let in_w = get_integer_width(ctx, val.get_type(ctx))
         .unwrap_or_else(|e| panic!("{op_name} input type error: {e}"));
@@ -244,17 +251,16 @@ fn assert_unary(ctx: &Context, val: Value, res_ty: TypeHandle, op_name: &str) {
     );
 }
 
+#[allow(dead_code)]
 fn assert_reduction(ctx: &Context, val: Value, i1_ty: TypeHandle, op_name: &str) {
     let _in_w = get_integer_width(ctx, val.get_type(ctx))
         .unwrap_or_else(|e| panic!("{op_name} input type error: {e}"));
     let res_w = get_integer_width(ctx, i1_ty)
         .unwrap_or_else(|e| panic!("{op_name} result type error: {e}"));
-    assert_eq!(
-        res_w, 1,
-        "{op_name} result must be i1, found width {res_w}"
-    );
+    assert_eq!(res_w, 1, "{op_name} result must be i1, found width {res_w}");
 }
 
+#[allow(dead_code)]
 fn assert_variadic_bitwise(ctx: &Context, inputs: &[Value], res_ty: TypeHandle, op_name: &str) {
     assert!(!inputs.is_empty(), "{op_name} requires at least one input");
     let w0 = get_integer_width(ctx, inputs[0].get_type(ctx))

@@ -9,24 +9,33 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::hw::ops::ModuleOp;
 use pliron::{
     context::{Context, Ptr},
+    linked_list::ContainsLinkedList,
     location::Located,
-    op::Op,
     operation::Operation,
     result::Result,
     verify_err,
 };
 
-use crate::hw::ops::ModuleOp;
+#[allow(dead_code)]
+/// Node visit state for cycle detection.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum VisitState {
+    Visiting,
+    Visited,
+}
 
+#[allow(dead_code)]
 /// Returns `true` if the given operation is purely combinational.
 ///
 /// Combinational operations have zero clock latency and pass signals combinationally
 /// from inputs to outputs without an intervening sequential state boundary.
 pub fn is_combinational_op(ctx: &Context, op_ptr: Ptr<Operation>) -> bool {
-    let name = op_ptr.deref(ctx).get_op_name();
-    let name_str = name.as_str();
+    // let name = op_ptr.deref(ctx).get_opid().name;
+    let name = Operation::get_opid(op_ptr, ctx).name;
+    let name_str: &str = name.as_ref();
 
     // All comb dialect operations are combinational
     if name_str.starts_with("comb.") {
@@ -49,13 +58,7 @@ pub fn is_combinational_op(ctx: &Context, op_ptr: Ptr<Operation>) -> bool {
     )
 }
 
-/// Node visit state for cycle detection.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum VisitState {
-    Visiting,
-    Visited,
-}
-
+#[allow(dead_code)]
 /// Verify that no combinational cycles exist within the body of an `hw.module`.
 ///
 /// Returns an error pointing to the cyclic operation if a closed combinational loop is detected.
@@ -64,7 +67,7 @@ pub fn check_comb_cycles(ctx: &Context, module: &ModuleOp) -> Result<()> {
     let mut comb_ops: Vec<Ptr<Operation>> = Vec::new();
     let mut op_set: HashSet<Ptr<Operation>> = HashSet::new();
 
-    for op_ptr in body_block.deref(ctx).iter() {
+    for op_ptr in body_block.deref(ctx).iter(ctx) {
         if is_combinational_op(ctx, op_ptr) {
             comb_ops.push(op_ptr);
             op_set.insert(op_ptr);
@@ -83,6 +86,7 @@ pub fn check_comb_cycles(ctx: &Context, module: &ModuleOp) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn dfs_check_cycles(
     ctx: &Context,
     current: Ptr<Operation>,
@@ -92,6 +96,8 @@ fn dfs_check_cycles(
     state.insert(current, VisitState::Visiting);
 
     let op = current.deref(ctx);
+    let op_name = Operation::get_opid(current, ctx).name;
+    let op_name_str: &str = op_name.as_ref();
     for opd in op.operands() {
         if let Some(def_op) = opd.defining_op() {
             if comb_set.contains(&def_op) {
@@ -100,7 +106,7 @@ fn dfs_check_cycles(
                         return verify_err!(
                             op.loc(),
                             "combinational cycle detected involving operation '{}'",
-                            op.get_op_name()
+                            op_name_str
                         );
                     }
                     Some(VisitState::Visited) => {
