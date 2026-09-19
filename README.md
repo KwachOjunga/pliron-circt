@@ -4,7 +4,7 @@ Hardware dialect ecosystem for [pliron](https://github.com/pliron-org/pliron), r
 
 ## Dialect Ecosystem Overview
 
-| Dialect | Abstraction Level | Semantics & Contract (AGENTS.md) | Parity Target |
+| Dialect | Abstraction Level | Semantics & Contract | Parity Target |
 | :--- | :--- | :--- | :--- |
 | **`hw`** | **Structural Netlist & Modules** | Module hierarchy, ports, instances, packed arrays, records, wires, and bit-level slicing | **CIRCT `hw` Dialect** |
 | **`comb`** | Pure Combinational Gates | Combinational logic functions, zero-latency arithmetic, muxes, bitwise reduction | CIRCT `comb` Dialect |
@@ -22,7 +22,7 @@ The `hw` dialect defines core hardware types and structural operations for repre
 | Type | MLIR / CIRCT Syntax | pliron-hw Rust Representation | Semantic Contract |
 | :--- | :--- | :--- | :--- |
 | `IntType` | `!hw.int<w>` / `i<w>` | `hw.int<width>` | Arbitrary-width signless hardware wire or bus |
-| `InoutType` | `!hw.inout<elem>` | `hw.inout<element_type>` | Bidirectional / inout net (multi-driver resolution per AGENTS.md §13) |
+| `InoutType` | `!hw.inout<elem>` | `hw.inout<element_type>` | Bidirectional / inout net (multi-driver resolution) |
 | `ArrayType` | `!hw.array<size x elem>` | `hw.array<size x element_type>` | Packed fixed-size multidimensional hardware array |
 | `StructType` | `!hw.struct<f0: t0, ...>` | `hw.struct<f0: t0, ...>` | Named hardware aggregate / bundle of ports or fields |
 | `UnionType` | `!hw.union<f0: t0, ...>` | `hw.union<f0: t0, ...>` | Hardware union sharing physical bit storage |
@@ -38,7 +38,7 @@ The `hw` dialect defines core hardware types and structural operations for repre
   - `hw.output`: Terminator driving enclosing module output ports.
   - `hw.instance`: Instantiation of a module with instance name, module symbol, port inputs, and result wires.
 - **Connectivity & Net Identity**:
-  - `hw.wire`: Named internal hardware wire with explicit identity, preventing silent collapse during passes (AGENTS.md §13).
+  - `hw.wire`: Named internal hardware wire with explicit identity, preventing silent collapse during passes.
   - `hw.bitcast`: Reinterpretation between types of identical total bitwidth.
 - **Constants & Bit-Level Manipulation**:
   - `hw.constant`: Bitvector integer constant materialization.
@@ -68,4 +68,3 @@ Further design guidance is available in:
 - [`docs/hardware_layout_interface.md`](docs/hardware_layout_interface.md): hardware physical layout, bitwidth calculations, and aggregate packing;
 - [`docs/sv_dialect.md`](docs/sv_dialect.md): SV operation contracts;
 - [`docs/sv_transformations.md`](docs/sv_transformations.md): legal and illegal transformations between semantic dialects and SV emission intent.
-
