@@ -42,9 +42,9 @@ fn test_sv_emission_operations_verify() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let reset_ty: TypeHandle = ResetType::get(&ctx).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let module = ModuleOp::new(
         &mut ctx,
         "sv_valid".try_into().unwrap(),
@@ -69,9 +69,9 @@ fn test_sv_emission_operations_verify() {
         "active_high",
     );
     let output = OutputOp::new(&mut ctx, vec![assigned_value]);
-    assign.get_operation().insert_at_back(body, &mut ctx);
-    always.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    assign.get_operation().insert_at_back(body, &ctx);
+    always.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     assert_eq!(assign.target(&ctx).as_ref(), "next_value");
     assert_eq!(assign.result(&ctx).get_type(&ctx), i8_ty);
@@ -84,8 +84,8 @@ fn test_sv_rejects_non_clock_always_ff() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let reset_ty: TypeHandle = ResetType::get(&ctx).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let module = ModuleOp::new(
         &mut ctx,
         "sv_invalid_clock".try_into().unwrap(),
@@ -106,7 +106,7 @@ fn test_sv_rejects_non_clock_always_ff() {
         false,
         "active_high",
     );
-    always.get_operation().insert_at_back(body, &mut ctx);
+    always.get_operation().insert_at_back(body, &ctx);
 
     assert!(verify_op(&module, &ctx).is_err());
 }
@@ -117,9 +117,9 @@ fn test_sv_rejects_unknown_reset_polarity() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let reset_ty: TypeHandle = ResetType::get(&ctx).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let module = ModuleOp::new(
         &mut ctx,
         "sv_invalid_polarity".try_into().unwrap(),
@@ -140,7 +140,7 @@ fn test_sv_rejects_unknown_reset_polarity() {
         true,
         "active_middle",
     );
-    always.get_operation().insert_at_back(body, &mut ctx);
+    always.get_operation().insert_at_back(body, &ctx);
 
     assert!(verify_op(&module, &ctx).is_err());
 }
@@ -150,9 +150,9 @@ fn test_sv_rejects_unknown_reset_polarity() {
 fn test_sv_lowering_preserves_register_contracts() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let reset_ty: TypeHandle = ResetType::get(&ctx).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let module = ModuleOp::new(
         &mut ctx,
         "sv_lowering".try_into().unwrap(),
@@ -185,7 +185,7 @@ fn test_sv_lowering_preserves_register_contracts() {
 fn test_sv_canonicalizes_redundant_assignment() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let module = ModuleOp::new(&mut ctx, "sv_canonical".try_into().unwrap(), vec![i8_ty]);
     let body = module.get_body(&ctx);
     let input = module.get_input(&ctx, 0);
@@ -194,8 +194,8 @@ fn test_sv_canonicalizes_redundant_assignment() {
     let assign_ptr = assign.get_operation();
     let assigned_value = assign.result(&ctx);
     let output = OutputOp::new(&mut ctx, vec![assigned_value]);
-    assign_ptr.insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    assign_ptr.insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
     let mut rewriter = IRRewriter::<DummyListener>::default();
     assert!(eliminate_redundant_assign(&mut ctx, &mut rewriter, &assign).unwrap());
     assert!(verify_op(&module, &ctx).is_ok());
@@ -206,11 +206,11 @@ fn test_sv_canonicalizes_redundant_assignment() {
 fn test_hw_module_validation_rejects_cross_operation_conflicts() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
-    let i4_ty: TypeHandle = IntegerType::get(&mut ctx, 4, Signedness::Signless).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let memory_ty: TypeHandle = MemoryType::get(&mut ctx, 16, i8_ty).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let i1_ty: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
+    let i4_ty: TypeHandle = IntegerType::get(&ctx, 4, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let memory_ty: TypeHandle = MemoryType::get(&ctx, 16, i8_ty).into();
     let module = ModuleOp::new(
         &mut ctx,
         "validation".try_into().unwrap(),
@@ -237,9 +237,9 @@ fn test_hw_module_validation_rejects_cross_operation_conflicts() {
         assign_a.get_operation(),
         assign_b.get_operation(),
     ] {
-        op.insert_at_back(body, &mut ctx);
+        op.insert_at_back(body, &ctx);
     }
-    output.get_operation().insert_at_back(body, &mut ctx);
+    output.get_operation().insert_at_back(body, &ctx);
     assert!(validate_module(&ctx, &module).is_err());
 }
 
@@ -248,9 +248,9 @@ fn test_hw_module_validation_rejects_cross_operation_conflicts() {
 fn test_sv_printer_renders_register_and_assignment() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let reset_ty: TypeHandle = ResetType::get(&ctx).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let module = ModuleOp::new(
         &mut ctx,
         "printed_sv".try_into().unwrap(),
@@ -278,9 +278,9 @@ fn test_sv_printer_renders_register_and_assignment() {
         "active_high",
     );
     let output = OutputOp::new(&mut ctx, vec![assigned]);
-    assign.get_operation().insert_at_back(body, &mut ctx);
-    always.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    assign.get_operation().insert_at_back(body, &ctx);
+    always.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     let source = render_module(&ctx, &module).expect("verified SV module should render");
     assert!(source.contains("module printed_sv"));
@@ -297,9 +297,9 @@ fn test_sv_printer_renders_register_and_assignment() {
 fn test_sv_module_conversion_lowers_registers() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let reset_ty: TypeHandle = ResetType::get(&ctx).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let module = ModuleOp::new(
         &mut ctx,
         "sv_conversion".try_into().unwrap(),
@@ -327,9 +327,9 @@ fn test_sv_module_conversion_lowers_registers() {
     firreg_result.set_name(&ctx, Some("reset_state".try_into().unwrap()));
     reset.set_name(&ctx, Some("reset".try_into().unwrap()));
     let output = OutputOp::new(&mut ctx, vec![compreg_result, firreg_result]);
-    compreg.get_operation().insert_at_back(body, &mut ctx);
-    firreg.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    compreg.get_operation().insert_at_back(body, &ctx);
+    firreg.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     assert_eq!(lower_module_registers(&mut ctx, &module).unwrap(), 2);
     let source = render_module(&ctx, &module).unwrap();
@@ -344,8 +344,8 @@ fn test_sv_module_conversion_lowers_registers() {
 fn test_sv_declarations_instances_and_memory_render() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let memory_ty: TypeHandle = MemoryType::get(&mut ctx, 16, i8_ty).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let memory_ty: TypeHandle = MemoryType::get(&ctx, 16, i8_ty).into();
     let module = ModuleOp::new(&mut ctx, "sv_surface".try_into().unwrap(), vec![i8_ty]);
     let body = module.get_body(&ctx);
     let input = module.get_input(&ctx, 0);
@@ -362,9 +362,9 @@ fn test_sv_declarations_instances_and_memory_render() {
         instance.get_operation(),
         memory.get_operation(),
     ] {
-        op.insert_at_back(body, &mut ctx);
+        op.insert_at_back(body, &ctx);
     }
-    output.get_operation().insert_at_back(body, &mut ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     let source = render_module(&ctx, &module).expect("expanded SV surface should render");
     assert!(source.contains("logic [7:0] declared_value;"));
@@ -378,11 +378,11 @@ fn test_sv_declarations_instances_and_memory_render() {
 fn test_sv_memory_lowering_and_process_render() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
-    let i4_ty: TypeHandle = IntegerType::get(&mut ctx, 4, Signedness::Signless).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let memory_ty: TypeHandle = MemoryType::get(&mut ctx, 16, i8_ty).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let i1_ty: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
+    let i4_ty: TypeHandle = IntegerType::get(&ctx, 4, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let memory_ty: TypeHandle = MemoryType::get(&ctx, 16, i8_ty).into();
     let module = ModuleOp::new(
         &mut ctx,
         "sv_memory".try_into().unwrap(),
@@ -403,9 +403,9 @@ fn test_sv_memory_lowering_and_process_render() {
     let write = MemWriteOp::new(&mut ctx, "storage", clock, memory, address, data, enable);
     let read_value = read.result(&ctx);
     let output = OutputOp::new(&mut ctx, vec![read_value]);
-    read.get_operation().insert_at_back(body, &mut ctx);
-    write.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    read.get_operation().insert_at_back(body, &ctx);
+    write.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
     let source = render_module(&ctx, &module).unwrap();
     assert!(source.contains("always_ff @(posedge clock)"));
     assert!(source.contains("read_data <= storage[address];"));
@@ -418,10 +418,10 @@ fn test_sv_memory_lowering_and_process_render() {
 fn test_sv_module_conversion_lowers_memory_resource_and_ports() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let i4_ty: TypeHandle = IntegerType::get(&mut ctx, 4, Signedness::Signless).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let memory_ty: TypeHandle = MemoryType::get(&mut ctx, 16, i8_ty).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let i4_ty: TypeHandle = IntegerType::get(&ctx, 4, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let memory_ty: TypeHandle = MemoryType::get(&ctx, 16, i8_ty).into();
     let module = ModuleOp::new(
         &mut ctx,
         "sv_memory_conversion".try_into().unwrap(),
@@ -440,9 +440,9 @@ fn test_sv_module_conversion_lowers_memory_resource_and_ports() {
     let read = HLMemReadOp::new(&mut ctx, clock, memory_value, address, i8_ty);
     let read_value = read.result(&ctx);
     let output = OutputOp::new(&mut ctx, vec![read_value]);
-    memory.get_operation().insert_at_back(body, &mut ctx);
-    read.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    memory.get_operation().insert_at_back(body, &ctx);
+    read.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
     assert_eq!(lower_module(&mut ctx, &module).unwrap(), 1);
     let source = render_module(&ctx, &module).unwrap();
     assert!(source.contains("logic [7:0] storage [0:15];"));
@@ -460,10 +460,10 @@ fn test_sv_new_expressions_and_declarations_verify() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
-    let i4_ty: TypeHandle = IntegerType::get(&mut ctx, 4, Signedness::Signless).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let i16_ty: TypeHandle = IntegerType::get(&mut ctx, 16, Signedness::Signless).into();
+    let i1_ty: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
+    let i4_ty: TypeHandle = IntegerType::get(&ctx, 4, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let i16_ty: TypeHandle = IntegerType::get(&ctx, 16, Signedness::Signless).into();
 
     let module = ModuleOp::new(
         &mut ctx,
@@ -505,21 +505,21 @@ fn test_sv_new_expressions_and_declarations_verify() {
     assert_eq!(nba.target(&ctx).as_ref(), "r");
     assert_eq!(case_op.target(&ctx).as_ref(), "r");
 
-    wire.get_operation().insert_at_back(body, &mut ctx);
-    reg.get_operation().insert_at_back(body, &mut ctx);
-    bin.get_operation().insert_at_back(body, &mut ctx);
-    un.get_operation().insert_at_back(body, &mut ctx);
-    mux.get_operation().insert_at_back(body, &mut ctx);
-    concat.get_operation().insert_at_back(body, &mut ctx);
-    slice.get_operation().insert_at_back(body, &mut ctx);
-    index.get_operation().insert_at_back(body, &mut ctx);
-    c.get_operation().insert_at_back(body, &mut ctx);
-    bpa.get_operation().insert_at_back(body, &mut ctx);
-    nba.get_operation().insert_at_back(body, &mut ctx);
-    case_op.get_operation().insert_at_back(body, &mut ctx);
+    wire.get_operation().insert_at_back(body, &ctx);
+    reg.get_operation().insert_at_back(body, &ctx);
+    bin.get_operation().insert_at_back(body, &ctx);
+    un.get_operation().insert_at_back(body, &ctx);
+    mux.get_operation().insert_at_back(body, &ctx);
+    concat.get_operation().insert_at_back(body, &ctx);
+    slice.get_operation().insert_at_back(body, &ctx);
+    index.get_operation().insert_at_back(body, &ctx);
+    c.get_operation().insert_at_back(body, &ctx);
+    bpa.get_operation().insert_at_back(body, &ctx);
+    nba.get_operation().insert_at_back(body, &ctx);
+    case_op.get_operation().insert_at_back(body, &ctx);
 
     let output = OutputOp::new(&mut ctx, vec![bin_res]);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&module, &ctx).expect("SV expressions and declarations should verify");
 }
@@ -545,7 +545,7 @@ endmodule
     verify_op(&module, &ctx).expect("parsed SV module should verify");
 
     let rendered = render_module(&ctx, &module).expect("parsed module should render");
-    println!("{}", &rendered);
+    println!("{}", rendered);
     assert!(rendered.contains("module alu_block"));
     assert!(rendered.contains("assign temp = a + b;"));
 }
@@ -573,7 +573,7 @@ endmodule
     verify_op(&module, &ctx).expect("parsed SV module should verify");
 
     let rendered = render_module(&ctx, &module).expect("parsed module should render");
-    println!("{}", &rendered);
+    println!("{}", rendered);
     assert!(rendered.contains("module d_flip_flop"));
     assert!(rendered.contains("always_ff @(posedge clk)"));
     assert!(rendered.contains("state <= d;"));

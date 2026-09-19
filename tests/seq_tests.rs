@@ -23,10 +23,10 @@ fn test_seq_clock_gate_and_compreg() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
-    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let reset_ty: TypeHandle = ResetType::get(&ctx).into();
+    let i1_ty: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     assert_ne!(clock_ty, reset_ty);
     assert_ne!(clock_ty, i1_ty);
 
@@ -45,9 +45,9 @@ fn test_seq_clock_gate_and_compreg() {
     let reg = CompRegOp::new(&mut ctx, gated_clock, input, i8_ty);
     let registered_value = reg.result(&ctx);
     let output = OutputOp::new(&mut ctx, vec![registered_value, gated_clock]);
-    gate.get_operation().insert_at_back(body, &mut ctx);
-    reg.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    gate.get_operation().insert_at_back(body, &ctx);
+    reg.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     assert_eq!(gate.result(&ctx).get_type(&ctx), clock_ty);
     assert_eq!(reg.result(&ctx).get_type(&ctx), i8_ty);
@@ -61,12 +61,12 @@ fn test_seq_reset_register_and_memory_operations() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
-    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
-    let i4_ty: TypeHandle = IntegerType::get(&mut ctx, 4, Signedness::Signless).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let memory_ty: TypeHandle = MemoryType::get(&mut ctx, 16, i8_ty).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let reset_ty: TypeHandle = ResetType::get(&ctx).into();
+    let i1_ty: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
+    let i4_ty: TypeHandle = IntegerType::get(&ctx, 4, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let memory_ty: TypeHandle = MemoryType::get(&ctx, 16, i8_ty).into();
 
     let module = ModuleOp::new(
         &mut ctx,
@@ -99,11 +99,11 @@ fn test_seq_reset_register_and_memory_operations() {
     let register_value = register.result(&ctx);
     let output = OutputOp::new(&mut ctx, vec![register_value, read_value]);
 
-    register.get_operation().insert_at_back(body, &mut ctx);
-    memory.get_operation().insert_at_back(body, &mut ctx);
-    read.get_operation().insert_at_back(body, &mut ctx);
-    write.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    register.get_operation().insert_at_back(body, &ctx);
+    memory.get_operation().insert_at_back(body, &ctx);
+    read.get_operation().insert_at_back(body, &ctx);
+    write.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     let memory_handle_type = memory_ty.deref(&ctx);
     let memory = memory_handle_type
@@ -122,8 +122,8 @@ fn test_seq_rejects_non_clock_register_input() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let module = ModuleOp::new(
         &mut ctx,
         "seq_invalid_clock".try_into().unwrap(),
@@ -135,8 +135,8 @@ fn test_seq_rejects_non_clock_register_input() {
     let register = CompRegOp::new(&mut ctx, invalid_clock, input, i8_ty);
     let register_value = register.result(&ctx);
     let output = OutputOp::new(&mut ctx, vec![register_value]);
-    register.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    register.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     assert_ne!(invalid_clock.get_type(&ctx), clock_ty);
     assert!(verify_op(&module, &ctx).is_err());
@@ -149,9 +149,9 @@ fn test_seq_rejects_unknown_policy_attributes() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let clock_ty: TypeHandle = ClockType::get(&mut ctx).into();
-    let reset_ty: TypeHandle = ResetType::get(&mut ctx).into();
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let clock_ty: TypeHandle = ClockType::get(&ctx).into();
+    let reset_ty: TypeHandle = ResetType::get(&ctx).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let module = ModuleOp::new(
         &mut ctx,
         "seq_invalid_policy".try_into().unwrap(),
@@ -174,8 +174,8 @@ fn test_seq_rejects_unknown_policy_attributes() {
     );
     let register_value = register.result(&ctx);
     let output = OutputOp::new(&mut ctx, vec![register_value]);
-    register.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    register.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     assert!(verify_op(&module, &ctx).is_err());
 }

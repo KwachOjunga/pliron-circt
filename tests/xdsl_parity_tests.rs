@@ -59,8 +59,8 @@ fn test_xdsl_instance_port_parity() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let i32_ty: TypeHandle = IntegerType::get(&mut ctx, 32, Signedness::Signless).into();
-    let i64_ty: TypeHandle = IntegerType::get(&mut ctx, 64, Signedness::Signless).into();
+    let i32_ty: TypeHandle = IntegerType::get(&ctx, 32, Signedness::Signless).into();
+    let i64_ty: TypeHandle = IntegerType::get(&ctx, 64, Signedness::Signless).into();
 
     // hw.module @target_module(in %foo: i32, in %bar: i64, out baz: i32, out qux: i64)
     let (target_mod, body) = create_test_module(&mut ctx, "target_module", vec![i32_ty, i64_ty]);
@@ -68,7 +68,7 @@ fn test_xdsl_instance_port_parity() {
     let foo = target_mod.get_input(&ctx, 0);
     let bar = target_mod.get_input(&ctx, 1);
     let out_op = OutputOp::new(&mut ctx, vec![foo, bar]);
-    out_op.get_operation().insert_at_back(body, &mut ctx);
+    out_op.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&target_mod, &ctx).expect("target module must verify");
 
@@ -105,32 +105,32 @@ fn test_xdsl_array_ops_roundtrip() {
 
     let (module, body) = create_test_module(&mut ctx, "array_mod", vec![]);
 
-    let i19_ty: TypeHandle = IntegerType::get(&mut ctx, 19, Signedness::Signless).into();
+    let i19_ty: TypeHandle = IntegerType::get(&ctx, 19, Signedness::Signless).into();
 
     let c19_attr = int_attr(&mut ctx, 19, 42);
     let c19_op = ConstantOp::new(&mut ctx, c19_attr);
     let val = c19_op.result(&ctx);
-    c19_op.get_operation().insert_at_back(body, &mut ctx);
+    c19_op.get_operation().insert_at_back(body, &ctx);
 
     // hw.array_create %val, %val : i19 -> !hw.array<2xi19>
-    let arr_ty = ArrayType::get(&mut ctx, 2, i19_ty).into();
+    let arr_ty = ArrayType::get(&ctx, 2, i19_ty).into();
     let create_op = ArrayCreateOp::new(&mut ctx, vec![val, val], arr_ty);
     let arr = create_op.result(&ctx);
-    create_op.get_operation().insert_at_back(body, &mut ctx);
+    create_op.get_operation().insert_at_back(body, &ctx);
 
     // hw.array_get %arr[%idx] : !hw.array<2xi19>, i1
     let idx_attr = int_attr(&mut ctx, 1, 0);
     let idx_op = ConstantOp::new(&mut ctx, idx_attr);
     let idx = idx_op.result(&ctx);
-    idx_op.get_operation().insert_at_back(body, &mut ctx);
+    idx_op.get_operation().insert_at_back(body, &ctx);
 
     let get_op = ArrayGetOp::new(&mut ctx, arr, idx, i19_ty);
-    get_op.get_operation().insert_at_back(body, &mut ctx);
+    get_op.get_operation().insert_at_back(body, &ctx);
     assert_eq!(get_op.result(&ctx).get_type(&ctx), i19_ty);
 
     let final_res = get_op.result(&ctx);
     let out_op = OutputOp::new(&mut ctx, vec![final_res]);
-    out_op.get_operation().insert_at_back(body, &mut ctx);
+    out_op.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&module, &ctx).expect("module with array ops should verify");
 }
@@ -144,8 +144,8 @@ fn test_xdsl_comb_operations_parity() {
 
     let (module, body) = create_test_module(&mut ctx, "comb_mod", vec![]);
 
-    let i32_ty: TypeHandle = IntegerType::get(&mut ctx, 32, Signedness::Signless).into();
-    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let i32_ty: TypeHandle = IntegerType::get(&ctx, 32, Signedness::Signless).into();
+    let i1_ty: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
 
     let a_val = int_attr(&mut ctx, 32, 10);
     let b_val = int_attr(&mut ctx, 32, 20);
@@ -154,39 +154,39 @@ fn test_xdsl_comb_operations_parity() {
 
     let a = a_op.result(&ctx);
     let b = b_op.result(&ctx);
-    a_op.get_operation().insert_at_back(body, &mut ctx);
-    b_op.get_operation().insert_at_back(body, &mut ctx);
+    a_op.get_operation().insert_at_back(body, &ctx);
+    b_op.get_operation().insert_at_back(body, &ctx);
 
     // comb.add %a, %b : i32
     let add_op = AddOp::new(&mut ctx, a, b, i32_ty);
     assert_eq!(add_op.result(&ctx).get_type(&ctx), i32_ty);
-    add_op.get_operation().insert_at_back(body, &mut ctx);
+    add_op.get_operation().insert_at_back(body, &ctx);
 
     // comb.and %a, %b : i32
     let and_op = AndOp::new(&mut ctx, vec![a, b], i32_ty);
     assert_eq!(and_op.result(&ctx).get_type(&ctx), i32_ty);
-    and_op.get_operation().insert_at_back(body, &mut ctx);
+    and_op.get_operation().insert_at_back(body, &ctx);
 
     // comb.icmp eq %a, %b : i1
     let icmp_eq = ICmpOp::new(&mut ctx, ICmpPredicate::EQ, a, b, i1_ty);
     assert_eq!(icmp_eq.result(&ctx).get_type(&ctx), i1_ty);
-    icmp_eq.get_operation().insert_at_back(body, &mut ctx);
+    icmp_eq.get_operation().insert_at_back(body, &ctx);
 
     // comb.icmp slt %a, %b : i1
     let icmp_slt = ICmpOp::new(&mut ctx, ICmpPredicate::SLT, a, b, i1_ty);
     assert_eq!(icmp_slt.result(&ctx).get_type(&ctx), i1_ty);
-    icmp_slt.get_operation().insert_at_back(body, &mut ctx);
+    icmp_slt.get_operation().insert_at_back(body, &ctx);
 
     // comb.extract %a from 4 : (i32) -> i8
-    let i8_ty: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i8_ty: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let low_bit = int_attr(&mut ctx, 32, 4);
     let extract_op = ExtractOp::new(&mut ctx, a, low_bit, i8_ty);
     assert_eq!(extract_op.result(&ctx).get_type(&ctx), i8_ty);
-    extract_op.get_operation().insert_at_back(body, &mut ctx);
+    extract_op.get_operation().insert_at_back(body, &ctx);
 
     let final_res = add_op.result(&ctx);
     let out_op = OutputOp::new(&mut ctx, vec![final_res]);
-    out_op.get_operation().insert_at_back(body, &mut ctx);
+    out_op.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&module, &ctx).expect("comb module should verify");
 }
@@ -198,10 +198,10 @@ fn test_xdsl_seq_register_parity() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let clock_ty = ClockType::get(&mut ctx).into();
-    let reset_ty = ResetType::get(&mut ctx).into();
-    let i32_ty: TypeHandle = IntegerType::get(&mut ctx, 32, Signedness::Signless).into();
-    let i1_ty: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let clock_ty = ClockType::get(&ctx).into();
+    let reset_ty = ResetType::get(&ctx).into();
+    let i32_ty: TypeHandle = IntegerType::get(&ctx, 32, Signedness::Signless).into();
+    let i1_ty: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
 
     let (module, body) = create_test_module(
         &mut ctx,
@@ -218,24 +218,22 @@ fn test_xdsl_seq_register_parity() {
     // seq.compreg %clk, %d : i32
     let reg_plain = CompRegOp::new(&mut ctx, clk, d, i32_ty);
     assert_eq!(reg_plain.result(&ctx).get_type(&ctx), i32_ty);
-    reg_plain.get_operation().insert_at_back(body, &mut ctx);
+    reg_plain.get_operation().insert_at_back(body, &ctx);
 
     // seq.firreg %clk, %d reset %rst, %rst_val : i32
     let reg_with_reset =
         FirRegOp::new(&mut ctx, clk, d, rst, rst_val, i32_ty, false, "active_high");
     assert_eq!(reg_with_reset.result(&ctx).get_type(&ctx), i32_ty);
-    reg_with_reset
-        .get_operation()
-        .insert_at_back(body, &mut ctx);
+    reg_with_reset.get_operation().insert_at_back(body, &ctx);
 
     // seq.clock_gate %clk, %en
     let clk_gate = ClockGateOp::new(&mut ctx, clk, en, clock_ty);
     assert_eq!(clk_gate.result(&ctx).get_type(&ctx), clock_ty);
-    clk_gate.get_operation().insert_at_back(body, &mut ctx);
+    clk_gate.get_operation().insert_at_back(body, &ctx);
 
     let final_res = reg_plain.result(&ctx);
     let out_op = OutputOp::new(&mut ctx, vec![final_res]);
-    out_op.get_operation().insert_at_back(body, &mut ctx);
+    out_op.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&module, &ctx).expect("seq module should verify");
 }

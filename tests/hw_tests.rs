@@ -50,8 +50,8 @@ fn test_hw_module_creation_and_graph_region() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let i1: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
-    let i32: TypeHandle = IntegerType::get(&mut ctx, 32, Signedness::Signless).into();
+    let i1: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
+    let i32: TypeHandle = IntegerType::get(&ctx, 32, Signedness::Signless).into();
 
     let module_name = "alu".try_into().unwrap();
     let module = ModuleOp::new(&mut ctx, module_name, vec![i32, i32, i1]);
@@ -72,8 +72,8 @@ fn test_hw_module_creation_and_graph_region() {
     let output_op = OutputOp::new(&mut ctx, vec![c_res]);
 
     let body = module.get_body(&ctx);
-    const_op.get_operation().insert_at_back(body, &mut ctx);
-    output_op.get_operation().insert_at_back(body, &mut ctx);
+    const_op.get_operation().insert_at_back(body, &ctx);
+    output_op.get_operation().insert_at_back(body, &ctx);
 
     // Verify the entire module IR
     verify_op(&module, &ctx).expect("hw.module should verify successfully");
@@ -92,7 +92,7 @@ fn test_hw_wire_and_bitcast() {
 
     let (module, body) = create_test_module(&mut ctx, "wire_test");
 
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let const_val = int_attr(&mut ctx, 8, 0x55);
     let const_op = ConstantOp::new(&mut ctx, const_val);
 
@@ -108,10 +108,10 @@ fn test_hw_wire_and_bitcast() {
     let b_res = bitcast_op.result(&ctx);
     let out_op = OutputOp::new(&mut ctx, vec![b_res]);
 
-    const_op.get_operation().insert_at_back(body, &mut ctx);
-    wire_op.get_operation().insert_at_back(body, &mut ctx);
-    bitcast_op.get_operation().insert_at_back(body, &mut ctx);
-    out_op.get_operation().insert_at_back(body, &mut ctx);
+    const_op.get_operation().insert_at_back(body, &ctx);
+    wire_op.get_operation().insert_at_back(body, &ctx);
+    bitcast_op.get_operation().insert_at_back(body, &ctx);
+    out_op.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&module, &ctx).expect("hw.module should verify");
 }
@@ -124,8 +124,8 @@ fn test_hw_concat_and_slice() {
 
     let (module, body) = create_test_module(&mut ctx, "concat_test");
 
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let i16: TypeHandle = IntegerType::get(&mut ctx, 16, Signedness::Signless).into();
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let i16: TypeHandle = IntegerType::get(&ctx, 16, Signedness::Signless).into();
 
     let a1 = int_attr(&mut ctx, 8, 0xAB);
     let c1 = ConstantOp::new(&mut ctx, a1);
@@ -145,11 +145,11 @@ fn test_hw_concat_and_slice() {
     let s_res = slice_op.result(&ctx);
     let out_op = OutputOp::new(&mut ctx, vec![s_res]);
 
-    c1.get_operation().insert_at_back(body, &mut ctx);
-    c2.get_operation().insert_at_back(body, &mut ctx);
-    concat_op.get_operation().insert_at_back(body, &mut ctx);
-    slice_op.get_operation().insert_at_back(body, &mut ctx);
-    out_op.get_operation().insert_at_back(body, &mut ctx);
+    c1.get_operation().insert_at_back(body, &ctx);
+    c2.get_operation().insert_at_back(body, &ctx);
+    concat_op.get_operation().insert_at_back(body, &ctx);
+    slice_op.get_operation().insert_at_back(body, &ctx);
+    out_op.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&module, &ctx).expect("hw.module should verify");
 }
@@ -162,8 +162,8 @@ fn test_hw_array_operations() {
 
     let (module, body) = create_test_module(&mut ctx, "array_test");
 
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let arr_ty: TypeHandle = ArrayType::get(&mut ctx, 4, i8).into();
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let arr_ty: TypeHandle = ArrayType::get(&ctx, 4, i8).into();
 
     let a0 = int_attr(&mut ctx, 8, 10);
     let e0 = ConstantOp::new(&mut ctx, a0);
@@ -199,16 +199,16 @@ fn test_hw_array_operations() {
 
     let out_op = OutputOp::new(&mut ctx, vec![g_res]);
 
-    e0.get_operation().insert_at_back(body, &mut ctx);
-    e1.get_operation().insert_at_back(body, &mut ctx);
-    e2.get_operation().insert_at_back(body, &mut ctx);
-    e3.get_operation().insert_at_back(body, &mut ctx);
-    arr_create.get_operation().insert_at_back(body, &mut ctx);
-    idx.get_operation().insert_at_back(body, &mut ctx);
-    arr_get.get_operation().insert_at_back(body, &mut ctx);
-    new_elem.get_operation().insert_at_back(body, &mut ctx);
-    arr_inject.get_operation().insert_at_back(body, &mut ctx);
-    out_op.get_operation().insert_at_back(body, &mut ctx);
+    e0.get_operation().insert_at_back(body, &ctx);
+    e1.get_operation().insert_at_back(body, &ctx);
+    e2.get_operation().insert_at_back(body, &ctx);
+    e3.get_operation().insert_at_back(body, &ctx);
+    arr_create.get_operation().insert_at_back(body, &ctx);
+    idx.get_operation().insert_at_back(body, &ctx);
+    arr_get.get_operation().insert_at_back(body, &ctx);
+    new_elem.get_operation().insert_at_back(body, &ctx);
+    arr_inject.get_operation().insert_at_back(body, &ctx);
+    out_op.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&module, &ctx).expect("hw.module should verify");
 }
@@ -221,14 +221,14 @@ fn test_hw_struct_operations() {
 
     let (module, body) = create_test_module(&mut ctx, "struct_test");
 
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let i16: TypeHandle = IntegerType::get(&mut ctx, 16, Signedness::Signless).into();
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let i16: TypeHandle = IntegerType::get(&ctx, 16, Signedness::Signless).into();
 
     let f_a: Identifier = "a".try_into().unwrap();
     let f_b: Identifier = "b".try_into().unwrap();
 
     let struct_ty: TypeHandle = StructType::get(
-        &mut ctx,
+        &ctx,
         vec![
             StructField::new(f_a.clone(), i8),
             StructField::new(f_b.clone(), i16),
@@ -270,14 +270,14 @@ fn test_hw_struct_operations() {
     let e_res = extract_a.result(&ctx);
     let out_op = OutputOp::new(&mut ctx, vec![e_res]);
 
-    val_a.get_operation().insert_at_back(body, &mut ctx);
-    val_b.get_operation().insert_at_back(body, &mut ctx);
-    struct_create.get_operation().insert_at_back(body, &mut ctx);
-    extract_a.get_operation().insert_at_back(body, &mut ctx);
-    new_val_a.get_operation().insert_at_back(body, &mut ctx);
-    inject_a.get_operation().insert_at_back(body, &mut ctx);
-    explode.get_operation().insert_at_back(body, &mut ctx);
-    out_op.get_operation().insert_at_back(body, &mut ctx);
+    val_a.get_operation().insert_at_back(body, &ctx);
+    val_b.get_operation().insert_at_back(body, &ctx);
+    struct_create.get_operation().insert_at_back(body, &ctx);
+    extract_a.get_operation().insert_at_back(body, &ctx);
+    new_val_a.get_operation().insert_at_back(body, &ctx);
+    inject_a.get_operation().insert_at_back(body, &ctx);
+    explode.get_operation().insert_at_back(body, &ctx);
+    out_op.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&module, &ctx).expect("hw.module should verify");
 }
@@ -292,7 +292,7 @@ fn test_hw_extern_module_and_instance() {
     let extern_mod = ExternModuleOp::new(&mut ctx, ext_name.clone());
     verify_op(&extern_mod, &ctx).expect("hw.module_extern should verify");
 
-    let i1: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let i1: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
     let a_clk = int_attr(&mut ctx, 1, 1);
     let clk_in = ConstantOp::new(&mut ctx, a_clk);
 
@@ -313,10 +313,10 @@ fn test_hw_native_types() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let hw_int: TypeHandle = IntType::get(&mut ctx, 64).into();
-    let hw_inout: TypeHandle = InoutType::get(&mut ctx, hw_int).into();
+    let hw_int: TypeHandle = IntType::get(&ctx, 64).into();
+    let hw_inout: TypeHandle = InoutType::get(&ctx, hw_int).into();
     let alias_sym: Identifier = "my_custom_bus".try_into().unwrap();
-    let hw_alias: TypeHandle = TypeAliasType::get(&mut ctx, alias_sym, hw_int).into();
+    let hw_alias: TypeHandle = TypeAliasType::get(&ctx, alias_sym, hw_int).into();
 
     let ir_int = hw_int.disp(&ctx).to_string();
     assert_eq!(ir_int, "hw.int <64>");
@@ -334,12 +334,12 @@ fn test_hw_enum_type() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let i2: TypeHandle = IntegerType::get(&mut ctx, 2, Signedness::Signless).into();
+    let i2: TypeHandle = IntegerType::get(&ctx, 2, Signedness::Signless).into();
     let enum_name: Identifier = "Opcode".try_into().unwrap();
     let add_name: Identifier = "add".try_into().unwrap();
     let sub_name: Identifier = "sub".try_into().unwrap();
     let enum_ty = EnumType::get(
-        &mut ctx,
+        &ctx,
         enum_name,
         i2,
         vec![
@@ -363,14 +363,14 @@ fn test_hw_union_operations() {
 
     let (module, body) = create_test_module(&mut ctx, "union_test");
 
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let i32: TypeHandle = IntegerType::get(&mut ctx, 32, Signedness::Signless).into();
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let i32: TypeHandle = IntegerType::get(&ctx, 32, Signedness::Signless).into();
 
     let f_byte: Identifier = "byte_val".try_into().unwrap();
     let f_word: Identifier = "word_val".try_into().unwrap();
 
     let union_ty: TypeHandle = UnionType::get(
-        &mut ctx,
+        &ctx,
         vec![
             StructField::new(f_byte.clone(), i8),
             StructField::new(f_word.clone(), i32),
@@ -392,10 +392,10 @@ fn test_hw_union_operations() {
     let ext_res = union_extract.result(&ctx);
     let out_op = OutputOp::new(&mut ctx, vec![ext_res]);
 
-    b_const.get_operation().insert_at_back(body, &mut ctx);
-    union_create.get_operation().insert_at_back(body, &mut ctx);
-    union_extract.get_operation().insert_at_back(body, &mut ctx);
-    out_op.get_operation().insert_at_back(body, &mut ctx);
+    b_const.get_operation().insert_at_back(body, &ctx);
+    union_create.get_operation().insert_at_back(body, &ctx);
+    union_extract.get_operation().insert_at_back(body, &ctx);
+    out_op.get_operation().insert_at_back(body, &ctx);
 
     verify_op(&module, &ctx).expect("hw.module with union ops should verify");
 }
@@ -415,7 +415,7 @@ fn test_hw_parameters_and_hierpath() {
     );
     verify_op(&param_decl, &ctx).expect("hw.param_decl should verify");
 
-    let i32_ty: TypeHandle = IntegerType::get(&mut ctx, 32, Signedness::Signless).into();
+    let i32_ty: TypeHandle = IntegerType::get(&ctx, 32, Signedness::Signless).into();
     let param_val = ParamValueOp::new(&mut ctx, "DATA_WIDTH".to_string().into(), i32_ty);
     assert_eq!(param_val.result(&ctx).get_type(&ctx), i32_ty);
 
@@ -434,13 +434,13 @@ fn test_hw_module_ports_and_output_accessors() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
 
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let i1: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let i1: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
     let module = ModuleOp::new(&mut ctx, "ports".try_into().unwrap(), vec![i8, i1]);
     let body = module.get_body(&ctx);
     let input = module.get_input(&ctx, 0);
     let output = OutputOp::new(&mut ctx, vec![input]);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     assert_eq!(module.num_inputs(&ctx), 2);
     assert_eq!(module.get_input(&ctx, 0).get_type(&ctx), i8);
@@ -456,7 +456,7 @@ fn test_hw_wire_identity_and_bitcast_accessors() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
     let (module, body) = create_test_module(&mut ctx, "wire_accessors");
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let constant_attr = int_attr(&mut ctx, 8, 0xA5);
     let constant = ConstantOp::new(&mut ctx, constant_attr);
     let constant_result = constant.result(&ctx);
@@ -466,10 +466,10 @@ fn test_hw_wire_identity_and_bitcast_accessors() {
     let bitcast_result = bitcast.result(&ctx);
     let output = OutputOp::new(&mut ctx, vec![bitcast_result]);
 
-    constant.get_operation().insert_at_back(body, &mut ctx);
-    wire.get_operation().insert_at_back(body, &mut ctx);
-    bitcast.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    constant.get_operation().insert_at_back(body, &ctx);
+    wire.get_operation().insert_at_back(body, &ctx);
+    bitcast.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
 
     assert_eq!(wire.name(&ctx).as_str(), "payload");
     assert_eq!(wire.input(&ctx), constant.result(&ctx));
@@ -483,7 +483,7 @@ fn test_hw_wire_identity_and_bitcast_accessors() {
 fn test_hw_instance_and_external_module_metadata() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let i1: TypeHandle = IntegerType::get(&mut ctx, 1, Signedness::Signless).into();
+    let i1: TypeHandle = IntegerType::get(&ctx, 1, Signedness::Signless).into();
     let name: Identifier = "clock_source".try_into().unwrap();
     let external = ExternModuleOp::new(&mut ctx, name.clone());
     let input_attr = int_attr(&mut ctx, 1, 1);
@@ -510,9 +510,9 @@ fn test_hw_array_shape_and_index_operations() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
     let (module, body) = create_test_module(&mut ctx, "array_shapes");
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let i2: TypeHandle = IntegerType::get(&mut ctx, 2, Signedness::Signless).into();
-    let array_ty = ArrayType::get(&mut ctx, 3, i8);
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let i2: TypeHandle = IntegerType::get(&ctx, 2, Signedness::Signless).into();
+    let array_ty = ArrayType::get(&ctx, 3, i8);
     assert_eq!(array_ty.deref(&ctx).size(), 3);
     assert_eq!(array_ty.deref(&ctx).element_type(), i8);
 
@@ -532,12 +532,12 @@ fn test_hw_array_shape_and_index_operations() {
     let output = OutputOp::new(&mut ctx, vec![get_result]);
 
     for value in values {
-        value.get_operation().insert_at_back(body, &mut ctx);
+        value.get_operation().insert_at_back(body, &ctx);
     }
-    index.get_operation().insert_at_back(body, &mut ctx);
-    array.get_operation().insert_at_back(body, &mut ctx);
-    get.get_operation().insert_at_back(body, &mut ctx);
-    output.get_operation().insert_at_back(body, &mut ctx);
+    index.get_operation().insert_at_back(body, &ctx);
+    array.get_operation().insert_at_back(body, &ctx);
+    get.get_operation().insert_at_back(body, &ctx);
+    output.get_operation().insert_at_back(body, &ctx);
     assert_eq!(get.result(&ctx).get_type(&ctx), i8);
     assert_eq!(i2, index.result(&ctx).get_type(&ctx));
     verify_op(&module, &ctx).expect("array shape graph should verify");
@@ -548,16 +548,16 @@ fn test_hw_array_shape_and_index_operations() {
 fn test_hw_struct_union_and_enum_metadata() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
-    let i16: TypeHandle = IntegerType::get(&mut ctx, 16, Signedness::Signless).into();
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
+    let i16: TypeHandle = IntegerType::get(&ctx, 16, Signedness::Signless).into();
     let byte: Identifier = "byte".try_into().unwrap();
     let word: Identifier = "word".try_into().unwrap();
     let fields = vec![
         StructField::new(byte.clone(), i8),
         StructField::new(word.clone(), i16),
     ];
-    let struct_ty = StructType::get(&mut ctx, fields.clone());
-    let union_ty = UnionType::get(&mut ctx, fields);
+    let struct_ty = StructType::get(&ctx, fields.clone());
+    let union_ty = UnionType::get(&ctx, fields);
 
     {
         let struct_ref = struct_ty.deref(&ctx);
@@ -569,7 +569,7 @@ fn test_hw_struct_union_and_enum_metadata() {
     }
 
     let enum_ty = EnumType::get(
-        &mut ctx,
+        &ctx,
         "Opcode".try_into().unwrap(),
         i8,
         vec![EnumVariant::new("idle".try_into().unwrap(), 0)],
@@ -585,7 +585,7 @@ fn test_hw_struct_union_and_enum_metadata() {
         "idle"
     );
 
-    let alias = TypeAliasType::get(&mut ctx, "Byte".try_into().unwrap(), i8);
+    let alias = TypeAliasType::get(&ctx, "Byte".try_into().unwrap(), i8);
     assert_eq!(alias.deref(&ctx).inner_type(), i8);
 }
 
@@ -594,11 +594,11 @@ fn test_hw_struct_union_and_enum_metadata() {
 fn test_hw_module_type_and_printed_ir() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
-    let i8: TypeHandle = IntegerType::get(&mut ctx, 8, Signedness::Signless).into();
+    let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let input: Identifier = "input".try_into().unwrap();
     let output: Identifier = "output".try_into().unwrap();
     let signature = pliron_hw::hw::types::ModuleType::get(
-        &mut ctx,
+        &ctx,
         vec![StructField::new(input, i8)],
         vec![StructField::new(output, i8)],
     );
