@@ -77,7 +77,7 @@ pub fn check_comb_cycles(ctx: &Context, module: &ModuleOp) -> Result<()> {
     let mut state_map: HashMap<Ptr<Operation>, VisitState> = HashMap::new();
 
     for &start_op in &comb_ops {
-        if state_map.get(&start_op).is_none() {
+        if !state_map.contains_key(&start_op) {
             dfs_check_cycles(ctx, start_op, &op_set, &mut state_map)?;
         }
     }
