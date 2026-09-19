@@ -33,7 +33,6 @@ enum VisitState {
 /// Combinational operations have zero clock latency and pass signals combinationally
 /// from inputs to outputs without an intervening sequential state boundary.
 pub fn is_combinational_op(ctx: &Context, op_ptr: Ptr<Operation>) -> bool {
-    // let name = op_ptr.deref(ctx).get_opid().name;
     let name = Operation::get_opid(op_ptr, ctx).name;
     let name_str: &str = name.as_ref();
 

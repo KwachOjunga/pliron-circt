@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Pre-CI tests to run locally before pushing to GitHub
+
+set -ex
+
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo tarpaulin --workspace
+RUSTFLAGS="-D warnings" cargo test --workspace
+#RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --document-private-items
