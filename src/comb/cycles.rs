@@ -98,22 +98,22 @@ fn dfs_check_cycles(
     let op_name = Operation::get_opid(current, ctx).name;
     let op_name_str: &str = op_name.as_ref();
     for opd in op.operands() {
-        if let Some(def_op) = opd.defining_op() {
-            if comb_set.contains(&def_op) {
-                match state.get(&def_op) {
-                    Some(VisitState::Visiting) => {
-                        return verify_err!(
-                            op.loc(),
-                            "combinational cycle detected involving operation '{}'",
-                            op_name_str
-                        );
-                    }
-                    Some(VisitState::Visited) => {
-                        // Already checked and acyclic
-                    }
-                    None => {
-                        dfs_check_cycles(ctx, def_op, comb_set, state)?;
-                    }
+        if let Some(def_op) = opd.defining_op()
+            && comb_set.contains(&def_op)
+        {
+            match state.get(&def_op) {
+                Some(VisitState::Visiting) => {
+                    return verify_err!(
+                        op.loc(),
+                        "combinational cycle detected involving operation '{}'",
+                        op_name_str
+                    );
+                }
+                Some(VisitState::Visited) => {
+                    // Already checked and acyclic
+                }
+                None => {
+                    dfs_check_cycles(ctx, def_op, comb_set, state)?;
                 }
             }
         }

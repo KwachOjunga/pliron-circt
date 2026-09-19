@@ -7,10 +7,6 @@
 //! wire/logic declarations, continuous assignments, combinational blocks,
 //! and sequential `always_ff` blocks into verified Pliron hardware IR.
 
-use std::{
-    string::{String, ToString},
-    vec::Vec,
-};
 use awint::bw;
 use pliron::{
     builtin::{
@@ -28,6 +24,10 @@ use pliron::{
     verify_err, verify_error,
 };
 use rustc_hash::FxHashMap;
+use std::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use crate::{
     hw::ops::{ModuleOp, OutputOp},
@@ -325,11 +325,7 @@ impl<'a> Parser<'a> {
                 tok
             );
         }
-        verify_err!(
-            Location::Unknown,
-            "unexpected EOF, expected {:?}",
-            expected
-        )
+        verify_err!(Location::Unknown, "unexpected EOF, expected {:?}", expected)
     }
 
     fn expect_ident(&mut self) -> Result<String> {
@@ -562,8 +558,12 @@ impl<'a> Parser<'a> {
                         self.expect(Token::Semicolon)?;
                         self.expect(Token::End)?;
 
-                        let ff_op =
-                            AlwaysFfNoResetOp::new(self.ctx, target_name.as_str(), clk_val, next_val_expr);
+                        let ff_op = AlwaysFfNoResetOp::new(
+                            self.ctx,
+                            target_name.as_str(),
+                            clk_val,
+                            next_val_expr,
+                        );
                         ff_op.get_operation().insert_at_back(body, self.ctx);
                     }
                 }
@@ -650,7 +650,10 @@ impl<'a> Parser<'a> {
         Ok(lhs)
     }
 
-    fn parse_primary_or_unary(&mut self, body: Ptr<pliron::basic_block::BasicBlock>) -> Result<Value> {
+    fn parse_primary_or_unary(
+        &mut self,
+        body: Ptr<pliron::basic_block::BasicBlock>,
+    ) -> Result<Value> {
         match self.peek() {
             Some(Token::Tilde) => {
                 self.advance();

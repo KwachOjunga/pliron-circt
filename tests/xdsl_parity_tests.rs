@@ -41,7 +41,11 @@ fn int_attr(ctx: &mut Context, width: u32, val: u64) -> IntegerAttr {
     IntegerAttr::new(ty, APInt::from_u64(val, bw(width as usize)))
 }
 
-fn create_test_module(ctx: &mut Context, name: &str, inputs: Vec<TypeHandle>) -> (ModuleOp, Ptr<BasicBlock>) {
+fn create_test_module(
+    ctx: &mut Context,
+    name: &str,
+    inputs: Vec<TypeHandle>,
+) -> (ModuleOp, Ptr<BasicBlock>) {
     let mod_name: Identifier = name.try_into().unwrap();
     let module = ModuleOp::new(ctx, mod_name, inputs);
     let body = module.get_body(ctx);
@@ -80,7 +84,10 @@ fn test_xdsl_instance_port_parity() {
     );
 
     assert_eq!(instance.instance_name(&ctx).as_ref(), "test_instance");
-    assert_eq!(instance.module_name(&ctx).as_ref().as_ref(), "target_module");
+    assert_eq!(
+        instance.module_name(&ctx).as_ref().as_ref(),
+        "target_module"
+    );
     let results = instance.results(&ctx);
     assert_eq!(results.len(), 2);
     assert_eq!(results[0].get_type(&ctx), i32_ty);
@@ -214,18 +221,12 @@ fn test_xdsl_seq_register_parity() {
     reg_plain.get_operation().insert_at_back(body, &mut ctx);
 
     // seq.firreg %clk, %d reset %rst, %rst_val : i32
-    let reg_with_reset = FirRegOp::new(
-        &mut ctx,
-        clk,
-        d,
-        rst,
-        rst_val,
-        i32_ty,
-        false,
-        "active_high",
-    );
+    let reg_with_reset =
+        FirRegOp::new(&mut ctx, clk, d, rst, rst_val, i32_ty, false, "active_high");
     assert_eq!(reg_with_reset.result(&ctx).get_type(&ctx), i32_ty);
-    reg_with_reset.get_operation().insert_at_back(body, &mut ctx);
+    reg_with_reset
+        .get_operation()
+        .insert_at_back(body, &mut ctx);
 
     // seq.clock_gate %clk, %en
     let clk_gate = ClockGateOp::new(&mut ctx, clk, en, clock_ty);
