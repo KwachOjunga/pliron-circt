@@ -504,14 +504,14 @@ impl<'a> Parser<'a> {
                     let clk_val = self.resolve_val(&clk_name)?;
 
                     let mut rst_name: Option<String> = None;
-                    if let Some(Token::Ident(or_tok)) = self.peek() {
-                        if or_tok == "or" {
+                    if let Some(Token::Ident(or_tok)) = self.peek()
+                        && or_tok == "or"
+                    {
+                        self.advance();
+                        if let Some(Token::Posedge | Token::Negedge) = self.peek() {
                             self.advance();
-                            if let Some(Token::Posedge | Token::Negedge) = self.peek() {
-                                self.advance();
-                            }
-                            rst_name = Some(self.expect_ident()?);
                         }
+                        rst_name = Some(self.expect_ident()?);
                     }
 
                     self.expect(Token::RParen)?;

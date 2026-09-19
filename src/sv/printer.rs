@@ -138,14 +138,14 @@ fn sv_decl_type(ctx: &Context, value: Value, kind: &str) -> String {
 }
 
 fn memory_name(ctx: &Context, value: Value) -> String {
-    if let Some(defining_op) = value.defining_op() {
-        if let Some(memory) = Operation::get_op::<MemDeclOp>(defining_op, ctx) {
-            return memory
-                .get_attr_memory_target(ctx)
-                .expect("verified memory target")
-                .as_ref()
-                .to_owned();
-        }
+    if let Some(defining_op) = value.defining_op()
+        && let Some(memory) = Operation::get_op::<MemDeclOp>(defining_op, ctx)
+    {
+        return memory
+            .get_attr_memory_target(ctx)
+            .expect("verified memory target")
+            .as_ref()
+            .to_owned();
     }
     value_name(ctx, value)
 }

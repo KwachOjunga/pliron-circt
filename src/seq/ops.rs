@@ -159,6 +159,7 @@ impl Verify for FirRegOp {
 }
 
 impl FirRegOp {
+    #[allow(clippy::too_many_arguments)]
     /// Create a resettable register with explicit reset policy attributes.
     pub fn new(
         ctx: &mut Context,

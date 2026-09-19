@@ -522,6 +522,7 @@ impl AlwaysFfNoResetOp {
 }
 
 impl AlwaysFfOp {
+    #[allow(clippy::too_many_arguments)]
     /// Create a reset-aware `always_ff` assignment for a named target.
     pub fn new(
         ctx: &mut Context,
@@ -940,16 +941,17 @@ impl Verify for SliceExprOp {
             return verify_err!(op.loc(), "sv.slice_expr width must be positive");
         }
         let res_ty = op.get_result(0).get_type(ctx);
-        if let Some(int_ty) = res_ty.deref(ctx).downcast_ref::<IntegerType>() {
-            if int_ty.width() as u64 != width_val {
-                return verify_err!(
-                    op.loc(),
-                    "sv.slice_expr result width {} does not match attribute {}",
-                    int_ty.width(),
-                    width_val
-                );
-            }
+        if let Some(int_ty) = res_ty.deref(ctx).downcast_ref::<IntegerType>()
+            && int_ty.width() as u64 != width_val
+        {
+            return verify_err!(
+                op.loc(),
+                "sv.slice_expr result width {} does not match attribute {}",
+                int_ty.width(),
+                width_val
+            );
         }
+
         Ok(())
     }
 }
@@ -1071,16 +1073,17 @@ impl Verify for ConstantExprOp {
             return verify_err!(op.loc(), "sv.constant width must be positive");
         }
         let res_ty = op.get_result(0).get_type(ctx);
-        if let Some(int_ty) = res_ty.deref(ctx).downcast_ref::<IntegerType>() {
-            if int_ty.width() as u64 != width_val {
-                return verify_err!(
-                    op.loc(),
-                    "sv.constant result width {} does not match attribute {}",
-                    int_ty.width(),
-                    width_val
-                );
-            }
+        if let Some(int_ty) = res_ty.deref(ctx).downcast_ref::<IntegerType>()
+            && int_ty.width() as u64 != width_val
+        {
+            return verify_err!(
+                op.loc(),
+                "sv.constant result width {} does not match attribute {}",
+                int_ty.width(),
+                width_val
+            );
         }
+
         Ok(())
     }
 }

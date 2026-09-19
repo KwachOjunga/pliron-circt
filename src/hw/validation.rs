@@ -183,7 +183,7 @@ pub fn validate_module(ctx: &Context, module: &ModuleOp) -> Result<()> {
                 .is_some()
             {
                 let pair = (op.get_operand(1), op.get_operand(2));
-                if memory_writes.iter().any(|existing| *existing == pair) {
+                if memory_writes.contains(&pair) {
                     return verify_err!(
                         op.loc(),
                         "conflicting writes to the same memory and address in one module"
@@ -209,14 +209,15 @@ pub fn validate_modules(ctx: &Context, modules: &[ModuleOp]) -> Result<()> {
     for module in modules {
         validate_module(ctx, module)?;
         for op_ptr in module.get_body(ctx).deref(ctx).iter(ctx) {
-            if let Some(instance) = Operation::get_op::<InstanceOp>(op_ptr, ctx) {
-                if !symbols.contains(&instance.module_name(ctx).into()) {
-                    return verify_err!(
-                        op_ptr.deref(ctx).loc(),
-                        "unresolved hw.instance module reference"
-                    );
-                }
+            if let Some(instance) = Operation::get_op::<InstanceOp>(op_ptr, ctx)
+                && !symbols.contains(&instance.module_name(ctx).into())
+            {
+                return verify_err!(
+                    op_ptr.deref(ctx).loc(),
+                    "unresolved hw.instance module reference"
+                );
             }
+
             if let Some(instance) = Operation::get_op::<SvInstanceOp>(op_ptr, ctx) {
                 let name = instance
                     .get_attr_sv_instance_module(ctx)

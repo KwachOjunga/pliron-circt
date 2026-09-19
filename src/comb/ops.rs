@@ -59,6 +59,7 @@ impl ICmpPredicate {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     /// Parse predicate from string.
     pub fn from_str(s: &str) -> Option<Self> {
         match s {

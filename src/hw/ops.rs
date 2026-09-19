@@ -50,7 +50,7 @@ pub fn compute_type_bitwidth(ctx: &Context, ty: TypeHandle) -> Option<u64> {
     }
     if let Some(arr_ty) = ty_ref.downcast_ref::<ArrayType>() {
         let elem_w = compute_type_bitwidth(ctx, arr_ty.element_type())?;
-        return Some(arr_ty.size().checked_mul(elem_w)?);
+        return arr_ty.size().checked_mul(elem_w);
     }
     if let Some(st_ty) = ty_ref.downcast_ref::<StructType>() {
         let mut total = 0u64;
@@ -509,16 +509,17 @@ impl Verify for BitcastOp {
         let res_ty = op.get_result(0).get_type(ctx);
         let in_w = compute_type_bitwidth(ctx, in_ty);
         let res_w = compute_type_bitwidth(ctx, res_ty);
-        if let (Some(w_in), Some(w_res)) = (in_w, res_w) {
-            if w_in != w_res {
-                return verify_err!(
-                    op.loc(),
-                    "hw.bitcast input bitwidth ({}) must equal result bitwidth ({}); use comb.zext/sext/trunc for width changes",
-                    w_in,
-                    w_res
-                );
-            }
+        if let (Some(w_in), Some(w_res)) = (in_w, res_w)
+            && w_in != w_res
+        {
+            return verify_err!(
+                op.loc(),
+                "hw.bitcast input bitwidth ({}) must equal result bitwidth ({}); use comb.zext/sext/trunc for width changes",
+                w_in,
+                w_res
+            );
         }
+
         Ok(())
     }
 }
@@ -647,17 +648,17 @@ impl Verify for SliceOp {
         if let (Some(w_in), Some(w_res)) = (
             compute_type_bitwidth(ctx, in_ty),
             compute_type_bitwidth(ctx, res_ty),
-        ) {
-            if low.checked_add(w_res).map_or(true, |sum| sum > w_in) {
-                return verify_err!(
-                    op.loc(),
-                    "hw.slice out of bounds: low_bit ({}) + result width ({}) > input width ({})",
-                    low,
-                    w_res,
-                    w_in
-                );
-            }
+        ) && low.checked_add(w_res).is_none_or(|sum| sum > w_in)
+        {
+            return verify_err!(
+                op.loc(),
+                "hw.slice out of bounds: low_bit ({}) + result width ({}) > input width ({})",
+                low,
+                w_res,
+                w_in
+            );
         }
+
         Ok(())
     }
 }
@@ -676,7 +677,7 @@ impl SliceOp {
         let low = low_bit.value().to_u64();
         if let (Some(w_in), Some(w_res)) = (in_w, res_w) {
             assert!(
-                low.checked_add(w_res).map_or(false, |sum| sum <= w_in),
+                low.checked_add(w_res).is_some_and(|sum| sum <= w_in),
                 "hw.slice low_bit ({}) + result width ({}) exceeds input width ({})",
                 low,
                 w_res,
