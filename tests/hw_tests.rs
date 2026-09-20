@@ -16,7 +16,7 @@ use pliron::{
     r#type::{TypeHandle, Typed},
     utils::apint::APInt,
 };
-use pliron_hw::{
+use pliron_circt::{
     hw::{
         ops::{
             ArrayCreateOp, ArrayGetOp, ArrayInjectOp, BitcastOp, ConcatOp, ConstantOp,
@@ -597,7 +597,7 @@ fn test_hw_module_type_and_printed_ir() {
     let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let input: Identifier = "input".try_into().unwrap();
     let output: Identifier = "output".try_into().unwrap();
-    let signature = pliron_hw::hw::types::ModuleType::get(
+    let signature = pliron_circt::hw::types::ModuleType::get(
         &ctx,
         vec![StructField::new(input, i8)],
         vec![StructField::new(output, i8)],

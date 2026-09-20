@@ -1,8 +1,10 @@
-# pliron-hw
+# pliron-circt
 
-Hardware dialect ecosystem for [pliron](https://github.com/pliron-org/pliron), retaining parity with LLVM CIRCT / MLIR hardware IR.
+Dialect ecosystem for [pliron](https://github.com/pliron-org/pliron), retaining parity with LLVM CIRCT / MLIR IR.
 
 ## Dialect Ecosystem Overview
+
+A list of currently supported dialects and their parity with the upstream CIRCT / MLIR ecosystem.
 
 | Dialect | Abstraction Level | Semantics & Contract | Parity Target |
 | :--- | :--- | :--- | :--- |
@@ -34,7 +36,7 @@ The `hw` dialect defines core hardware types and structural operations for repre
 
 - **Hierarchy & Modules**:
   - `hw.module`: Structural hardware module container with single `Graph` region (`has_ssa_dominance = false`) and input block arguments.
-  - `hw.module.extern`: External black-box module declaration (ASIC macro, PLL, IP block).
+  - `hw.module_extern`: External black-box module declaration (ASIC macro, PLL, IP block).
   - `hw.output`: Terminator driving enclosing module output ports.
   - `hw.instance`: Instantiation of a module with instance name, module symbol, port inputs, and result wires.
 - **Connectivity & Net Identity**:

@@ -464,6 +464,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pliron-circt"
+version = "0.1.0"
+dependencies = [
+ "awint",
+ "env_logger",
+ "expect-test",
+ "log",
+ "pliron",
+ "rustc-hash",
+ "thiserror",
+]
+
+[[package]]
 name = "pliron-derive"
 version = "0.17.0"
 source = "git+https://github.com/pliron-org/pliron?rev=e66025a#e66025a6cdd2eee46fd18f494a5176308033f039"
@@ -475,19 +488,6 @@ dependencies = [
  "quote",
  "rustc-hash",
  "syn 3.0.5",
-]
-
-[[package]]
-name = "pliron-hw"
-version = "0.1.0"
-dependencies = [
- "awint",
- "env_logger",
- "expect-test",
- "log",
- "pliron",
- "rustc-hash",
- "thiserror",
 ]
 
 [[package]]

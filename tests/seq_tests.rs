@@ -7,7 +7,7 @@ use pliron::{
     op::{Op, verify_op},
     r#type::{TypeHandle, Typed},
 };
-use pliron_hw::{
+use pliron_circt::{
     hw::ops::{ModuleOp, OutputOp},
     register_all,
     seq::{

@@ -13,7 +13,7 @@ use pliron::{
     r#type::{TypeHandle, Typed},
     utils::apint::APInt,
 };
-use pliron_hw::{
+use pliron_circt::{
     comb::ops::{
         AddOp, AllOp, AndOp, AnyOp, ConcatOp, DivUOp, ExtractOp, ICmpOp, ICmpPredicate, ModUOp,
         MulOp, MuxOp, NegOp, NotOp, OrOp, ParityOp, ReplicateOp, ShlOp, ShrSOp, ShrUOp, SubOp,

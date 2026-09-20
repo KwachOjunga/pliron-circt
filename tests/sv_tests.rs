@@ -12,7 +12,7 @@ use pliron::{
     r#type::{TypeHandle, Typed},
     utils::apint::{APInt, bw},
 };
-use pliron_hw::{
+use pliron_circt::{
     hw::{
         ops::{ModuleOp, OutputOp},
         validation::validate_module,

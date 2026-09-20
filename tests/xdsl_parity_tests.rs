@@ -23,7 +23,7 @@ use pliron::{
     r#type::{TypeHandle, Typed},
     utils::apint::APInt,
 };
-use pliron_hw::{
+use pliron_circt::{
     comb::ops::{AddOp, AndOp, ExtractOp, ICmpOp, ICmpPredicate},
     hw::{
         ops::{ArrayCreateOp, ArrayGetOp, ConstantOp, InstanceOp, ModuleOp, OutputOp},
