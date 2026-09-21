@@ -10,18 +10,13 @@
 //! - Shifts with amounts >= width (0 for logical, sign-extension for arithmetic)
 //! - Bit-exact ordering for concatenation (first operand high, last operand low)
 //! - Bit slice extraction and replication
-
-use alloc::string::{String, ToString};
+#![allow(unused)]
 use core::num::NonZero;
 
-use awint::{Awi, Bits, bw};
+use awint::Awi;
 use pliron::{
-    builtin::{
-        attributes::IntegerAttr,
-        types::{IntegerType, Signedness},
-    },
+    builtin::types::IntegerType,
     context::{Context, Ptr},
-    op::Op,
     operation::Operation,
     r#type::Typed,
     utils::apint::APInt,
@@ -29,11 +24,7 @@ use pliron::{
 };
 
 use crate::{
-    comb::ops::{
-        AddOp, AllOp, AndOp, AnyOp, ConcatOp, DivSOp, DivUOp, ExtractOp, ICmpOp, ICmpPredicate,
-        ModSOp, ModUOp, MulOp, MuxOp, NegOp, NotOp, OrOp, ParityOp, ReplicateOp, ShlOp, ShrSOp,
-        ShrUOp, SubOp, XorOp,
-    },
+    comb::ops::{ExtractOp, ICmpOp, ICmpPredicate, ReplicateOp},
     hw::ops::ConstantOp,
 };
 
@@ -77,7 +68,9 @@ impl core::fmt::Display for EvalError {
 /// Evaluate `comb.add`: $(lhs + rhs) \pmod{2^W}$.
 pub fn eval_add(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
     if lhs.bw() != rhs.bw() {
-        return Err(EvalError::BitWidthMismatch("add operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "add operands must have equal width".into(),
+        ));
     }
     Ok(lhs.add(rhs))
 }
@@ -85,7 +78,9 @@ pub fn eval_add(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
 /// Evaluate `comb.sub`: $(lhs - rhs) \pmod{2^W}$.
 pub fn eval_sub(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
     if lhs.bw() != rhs.bw() {
-        return Err(EvalError::BitWidthMismatch("sub operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "sub operands must have equal width".into(),
+        ));
     }
     Ok(lhs.sub(rhs))
 }
@@ -93,7 +88,9 @@ pub fn eval_sub(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
 /// Evaluate `comb.mul`: $(lhs \times rhs) \pmod{2^W}$.
 pub fn eval_mul(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
     if lhs.bw() != rhs.bw() {
-        return Err(EvalError::BitWidthMismatch("mul operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "mul operands must have equal width".into(),
+        ));
     }
     Ok(lhs.mul(rhs))
 }
@@ -103,7 +100,9 @@ pub fn eval_mul(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
 /// Returns `Err(EvalError::DivisionByZero)` if divisor is zero, preserving undefined behavior.
 pub fn eval_divu(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
     if lhs.bw() != rhs.bw() {
-        return Err(EvalError::BitWidthMismatch("divu operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "divu operands must have equal width".into(),
+        ));
     }
     if rhs.is_zero() {
         return Err(EvalError::DivisionByZero);
@@ -116,7 +115,9 @@ pub fn eval_divu(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
 /// Returns `Err(EvalError::DivisionByZero)` if divisor is zero, preserving undefined behavior.
 pub fn eval_divs(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
     if lhs.bw() != rhs.bw() {
-        return Err(EvalError::BitWidthMismatch("divs operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "divs operands must have equal width".into(),
+        ));
     }
     if rhs.is_zero() {
         return Err(EvalError::DivisionByZero);
@@ -129,7 +130,9 @@ pub fn eval_divs(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
 /// Returns `Err(EvalError::RemainderByZero)` if divisor is zero, preserving undefined behavior.
 pub fn eval_modu(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
     if lhs.bw() != rhs.bw() {
-        return Err(EvalError::BitWidthMismatch("modu operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "modu operands must have equal width".into(),
+        ));
     }
     if rhs.is_zero() {
         return Err(EvalError::RemainderByZero);
@@ -142,7 +145,9 @@ pub fn eval_modu(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
 /// Returns `Err(EvalError::RemainderByZero)` if divisor is zero, preserving undefined behavior.
 pub fn eval_mods(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
     if lhs.bw() != rhs.bw() {
-        return Err(EvalError::BitWidthMismatch("mods operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "mods operands must have equal width".into(),
+        ));
     }
     if rhs.is_zero() {
         return Err(EvalError::RemainderByZero);
@@ -155,7 +160,9 @@ pub fn eval_mods(lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
 /// Shift amounts $\ge W$ produce zero.
 pub fn eval_shl(val: &APInt, shift: &APInt) -> Result<APInt, EvalError> {
     if val.bw() != shift.bw() {
-        return Err(EvalError::BitWidthMismatch("shl operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "shl operands must have equal width".into(),
+        ));
     }
     Ok(val.shl(shift))
 }
@@ -165,7 +172,9 @@ pub fn eval_shl(val: &APInt, shift: &APInt) -> Result<APInt, EvalError> {
 /// Shift amounts $\ge W$ produce zero.
 pub fn eval_shru(val: &APInt, shift: &APInt) -> Result<APInt, EvalError> {
     if val.bw() != shift.bw() {
-        return Err(EvalError::BitWidthMismatch("shru operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "shru operands must have equal width".into(),
+        ));
     }
     Ok(val.lshr(shift))
 }
@@ -175,7 +184,9 @@ pub fn eval_shru(val: &APInt, shift: &APInt) -> Result<APInt, EvalError> {
 /// Shift amounts $\ge W$ fill with the sign bit.
 pub fn eval_shrs(val: &APInt, shift: &APInt) -> Result<APInt, EvalError> {
     if val.bw() != shift.bw() {
-        return Err(EvalError::BitWidthMismatch("shrs operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "shrs operands must have equal width".into(),
+        ));
     }
     Ok(val.ashr(shift))
 }
@@ -188,7 +199,9 @@ pub fn eval_and(inputs: &[&APInt]) -> Result<APInt, EvalError> {
     let mut acc = (*inputs[0]).clone();
     for opd in &inputs[1..] {
         if acc.bw() != opd.bw() {
-            return Err(EvalError::BitWidthMismatch("and operands must have equal width".into()));
+            return Err(EvalError::BitWidthMismatch(
+                "and operands must have equal width".into(),
+            ));
         }
         acc = acc.and(opd);
     }
@@ -203,7 +216,9 @@ pub fn eval_or(inputs: &[&APInt]) -> Result<APInt, EvalError> {
     let mut acc = (*inputs[0]).clone();
     for opd in &inputs[1..] {
         if acc.bw() != opd.bw() {
-            return Err(EvalError::BitWidthMismatch("or operands must have equal width".into()));
+            return Err(EvalError::BitWidthMismatch(
+                "or operands must have equal width".into(),
+            ));
         }
         acc = acc.or(opd);
     }
@@ -218,7 +233,9 @@ pub fn eval_xor(inputs: &[&APInt]) -> Result<APInt, EvalError> {
     let mut acc = (*inputs[0]).clone();
     for opd in &inputs[1..] {
         if acc.bw() != opd.bw() {
-            return Err(EvalError::BitWidthMismatch("xor operands must have equal width".into()));
+            return Err(EvalError::BitWidthMismatch(
+                "xor operands must have equal width".into(),
+            ));
         }
         acc = acc.xor(opd);
     }
@@ -269,7 +286,8 @@ pub fn eval_parity(val: &APInt) -> APInt {
     let awi = &val.to_u128(); // for general widths, let's count directly via bit tests
     let mut ones = 0usize;
     for i in 0..val.bw() {
-        let mask = APInt::uone(NonZero::new(val.bw()).unwrap()).shl(&APInt::from_usize(i, NonZero::new(val.bw()).unwrap()));
+        let mask = APInt::uone(NonZero::new(val.bw()).unwrap())
+            .shl(&APInt::from_usize(i, NonZero::new(val.bw()).unwrap()));
         if !val.and(&mask).is_zero() {
             ones += 1;
         }
@@ -284,7 +302,9 @@ pub fn eval_parity(val: &APInt) -> APInt {
 /// Evaluate `comb.icmp`: Integer comparison according to predicate.
 pub fn eval_icmp(pred: ICmpPredicate, lhs: &APInt, rhs: &APInt) -> Result<APInt, EvalError> {
     if lhs.bw() != rhs.bw() {
-        return Err(EvalError::BitWidthMismatch("icmp operands must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "icmp operands must have equal width".into(),
+        ));
     }
     let one_bit = NonZero::new(1).unwrap();
     let b = match pred {
@@ -309,10 +329,14 @@ pub fn eval_icmp(pred: ICmpPredicate, lhs: &APInt, rhs: &APInt) -> Result<APInt,
 /// Evaluate `comb.mux`: 2-to-1 Multiplexer.
 pub fn eval_mux(cond: &APInt, true_val: &APInt, false_val: &APInt) -> Result<APInt, EvalError> {
     if cond.bw() != 1 {
-        return Err(EvalError::BitWidthMismatch("mux condition must be 1-bit".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "mux condition must be 1-bit".into(),
+        ));
     }
     if true_val.bw() != false_val.bw() {
-        return Err(EvalError::BitWidthMismatch("mux branch values must have equal width".into()));
+        return Err(EvalError::BitWidthMismatch(
+            "mux branch values must have equal width".into(),
+        ));
     }
     if !cond.is_zero() {
         Ok(true_val.clone())
@@ -336,12 +360,16 @@ pub fn eval_concat(inputs: &[&APInt]) -> Result<APInt, EvalError> {
     for opd in inputs {
         shift_offset -= opd.bw();
         for b in 0..opd.bw() {
-            let mask = APInt::uone(NonZero::new(opd.bw()).unwrap()).shl(&APInt::from_usize(b, NonZero::new(opd.bw()).unwrap()));
+            let mask = APInt::uone(NonZero::new(opd.bw()).unwrap())
+                .shl(&APInt::from_usize(b, NonZero::new(opd.bw()).unwrap()));
             let bit_val = !opd.and(&mask).is_zero();
             res.set(shift_offset + b, bit_val);
         }
     }
-    Ok(APInt::from_str(&res.to_string(), total_width, 10).unwrap_or_else(|_| APInt::zero(width_nz)))
+    Ok(
+        APInt::from_str(&res.to_string(), total_width, 10)
+            .unwrap_or_else(|_| APInt::zero(width_nz)),
+    )
 }
 
 /// Evaluate `comb.extract`: Extract a bit slice `[low_bit + width - 1 : low_bit]`.
@@ -350,7 +378,7 @@ pub fn eval_extract(val: &APInt, low_bit: usize, width: usize) -> Result<APInt, 
         return Err(EvalError::ZeroWidth);
     }
     if low_bit + width > val.bw() {
-        return Err(EvalError::OutOfBounds(alloc::format!(
+        return Err(EvalError::OutOfBounds(format!(
             "low_bit ({}) + width ({}) exceeds input width ({})",
             low_bit,
             width,
@@ -360,7 +388,10 @@ pub fn eval_extract(val: &APInt, low_bit: usize, width: usize) -> Result<APInt, 
     let width_nz = NonZero::new(width).unwrap();
     let mut res = Awi::zero(width_nz);
     for i in 0..width {
-        let mask = APInt::uone(NonZero::new(val.bw()).unwrap()).shl(&APInt::from_usize(low_bit + i, NonZero::new(val.bw()).unwrap()));
+        let mask = APInt::uone(NonZero::new(val.bw()).unwrap()).shl(&APInt::from_usize(
+            low_bit + i,
+            NonZero::new(val.bw()).unwrap(),
+        ));
         let bit_val = !val.and(&mask).is_zero();
         res.set(i, bit_val);
     }
@@ -377,12 +408,16 @@ pub fn eval_replicate(val: &APInt, count: usize) -> Result<APInt, EvalError> {
     let mut res = Awi::zero(width_nz);
     for k in 0..count {
         for i in 0..val.bw() {
-            let mask = APInt::uone(NonZero::new(val.bw()).unwrap()).shl(&APInt::from_usize(i, NonZero::new(val.bw()).unwrap()));
+            let mask = APInt::uone(NonZero::new(val.bw()).unwrap())
+                .shl(&APInt::from_usize(i, NonZero::new(val.bw()).unwrap()));
             let bit_val = !val.and(&mask).is_zero();
             res.set(k * val.bw() + i, bit_val);
         }
     }
-    Ok(APInt::from_str(&res.to_string(), total_width, 10).unwrap_or_else(|_| APInt::zero(width_nz)))
+    Ok(
+        APInt::from_str(&res.to_string(), total_width, 10)
+            .unwrap_or_else(|_| APInt::zero(width_nz)),
+    )
 }
 
 // -----------------------------------------------------------------------------
@@ -393,7 +428,7 @@ pub fn eval_replicate(val: &APInt, count: usize) -> Result<APInt, EvalError> {
 pub fn get_constant_value(ctx: &Context, val: Value) -> Option<APInt> {
     let def_op = val.defining_op()?;
     let const_op = Operation::get_op::<ConstantOp>(def_op, ctx)?;
-    Some(const_op.value(ctx).value().clone())
+    Some(const_op.get_attr_value(ctx)?.value().clone())
 }
 
 /// Attempt to constant fold a `comb` operation if all of its operands are known constants.
@@ -402,10 +437,11 @@ pub fn get_constant_value(ctx: &Context, val: Value) -> Option<APInt> {
 /// Returns `Ok(None)` if the operation has non-constant inputs or division/remainder by zero (undefined).
 pub fn fold_comb_op(ctx: &Context, op_ptr: Ptr<Operation>) -> Result<Option<APInt>, EvalError> {
     let op = op_ptr.deref(ctx);
-    let name = op.get_op_name();
+    let op_id = Operation::get_opid(op_ptr, ctx).name;
+    let name: &str = op_id.as_ref();
 
     // All comb ops require constant operands to fold
-    let mut opd_values = Vec::with_capacity(op.num_operands());
+    let mut opd_values = Vec::with_capacity(op.get_num_operands());
     for opd in op.operands() {
         match get_constant_value(ctx, opd) {
             Some(v) => opd_values.push(v),
@@ -413,7 +449,7 @@ pub fn fold_comb_op(ctx: &Context, op_ptr: Ptr<Operation>) -> Result<Option<APIn
         }
     }
 
-    match name.as_str() {
+    match name {
         "comb.add" => {
             let r = eval_add(&opd_values[0], &opd_values[1])?;
             Ok(Some(r))
@@ -433,27 +469,21 @@ pub fn fold_comb_op(ctx: &Context, op_ptr: Ptr<Operation>) -> Result<Option<APIn
                 Err(e) => Err(e),
             }
         }
-        "comb.divs" => {
-            match eval_divs(&opd_values[0], &opd_values[1]) {
-                Ok(r) => Ok(Some(r)),
-                Err(EvalError::DivisionByZero) => Ok(None),
-                Err(e) => Err(e),
-            }
-        }
-        "comb.modu" => {
-            match eval_modu(&opd_values[0], &opd_values[1]) {
-                Ok(r) => Ok(Some(r)),
-                Err(EvalError::RemainderByZero) => Ok(None),
-                Err(e) => Err(e),
-            }
-        }
-        "comb.mods" => {
-            match eval_mods(&opd_values[0], &opd_values[1]) {
-                Ok(r) => Ok(Some(r)),
-                Err(EvalError::RemainderByZero) => Ok(None),
-                Err(e) => Err(e),
-            }
-        }
+        "comb.divs" => match eval_divs(&opd_values[0], &opd_values[1]) {
+            Ok(r) => Ok(Some(r)),
+            Err(EvalError::DivisionByZero) => Ok(None),
+            Err(e) => Err(e),
+        },
+        "comb.modu" => match eval_modu(&opd_values[0], &opd_values[1]) {
+            Ok(r) => Ok(Some(r)),
+            Err(EvalError::RemainderByZero) => Ok(None),
+            Err(e) => Err(e),
+        },
+        "comb.mods" => match eval_mods(&opd_values[0], &opd_values[1]) {
+            Ok(r) => Ok(Some(r)),
+            Err(EvalError::RemainderByZero) => Ok(None),
+            Err(e) => Err(e),
+        },
         "comb.shl" => {
             let r = eval_shl(&opd_values[0], &opd_values[1])?;
             Ok(Some(r))
@@ -519,7 +549,13 @@ pub fn fold_comb_op(ctx: &Context, op_ptr: Ptr<Operation>) -> Result<Option<APIn
         "comb.extract" => {
             let ext_op = Operation::get_op::<ExtractOp>(op_ptr, ctx).expect("extract op");
             let low_bit = ext_op.low_bit(ctx).value().to_u64() as usize;
-            let res_w = ext_op.result(ctx).get_type(ctx).deref(ctx).downcast_ref::<IntegerType>().unwrap().width() as usize;
+            let res_w = ext_op
+                .result(ctx)
+                .get_type(ctx)
+                .deref(ctx)
+                .downcast_ref::<IntegerType>()
+                .unwrap()
+                .width() as usize;
             let r = eval_extract(&opd_values[0], low_bit, res_w)?;
             Ok(Some(r))
         }
