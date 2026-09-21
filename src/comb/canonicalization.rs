@@ -8,7 +8,7 @@
 //! - Subtraction by constant rewritten as addition of two's-complement negation
 //! - Mux identity simplifications: `mux(c, v, v) -> v`, `mux(c, 1, 0) -> c`
 //! - Identity element simplifications: `add(x, 0) -> x`, `mul(x, 1) -> x`, etc.
-
+#![allow(unused)]
 use core::num::NonZero;
 
 use pliron::{
@@ -21,7 +21,6 @@ use pliron::{
     linked_list::ContainsLinkedList,
     op::Op,
     operation::Operation,
-    printable::Printable,
     result::Result,
     r#type::Typed,
     utils::apint::APInt,
@@ -31,7 +30,7 @@ use pliron::{
 use crate::{
     comb::{
         eval::{eval_neg, get_constant_value},
-        ops::{AddOp, AndOp, ExtractOp, MulOp, MuxOp, NotOp, OrOp, ReplicateOp, SubOp, XorOp},
+        ops::{AddOp, ExtractOp, MuxOp, ReplicateOp},
     },
     hw::ops::ConstantOp,
 };
@@ -75,36 +74,70 @@ pub fn canonicalize_commutative(ctx: &mut Context, op_ptr: Ptr<Operation>) -> bo
 }
 
 /// Simplify subtraction of a constant: `sub(x, C) -> add(x, -C)`.
+// pub fn canonicalize_sub_to_add(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Option<AddOp> {
+//     let op = op_ptr.clone().deref(ctx);
+//     let name = Operation::get_opid(op_ptr, ctx).name;
+//     let name_str: &str = name.as_ref();
+//     if name_str != "comb.sub" {
+//         return None;
+//     }
+
+//     let lhs = op.get_operand(0);
+//     let rhs = op.get_operand(1);
+//     let rhs_const = get_constant_value(ctx, rhs)?;
+
+//     // Compute two's-complement negation: -C
+//     let neg_c = eval_neg(&rhs_const);
+//     let ty = rhs.get_type(ctx);
+//     let w = neg_c.bw() as u32;
+//     let signless_ty = IntegerType::get(ctx, w, Signedness::Signless);
+//     let neg_attr = IntegerAttr::new(signless_ty, neg_c);
+
+//     let new_const = ConstantOp::new(ctx, neg_attr);
+//     // let parent_block = op_ptr.deref(ctx).get_parent_block().expect("parent block");
+//     new_const.get_operation().insert_before(ctx, op_ptr);
+//     let add_op_res = new_const.result(ctx);
+//     let add_op = AddOp::new(ctx, lhs, add_op_res, ty);
+//     add_op.get_operation().insert_before(ctx, op_ptr);
+
+//     let old_res = op_ptr.deref(ctx).get_result(0);
+//     old_res.replace_some_uses_with(ctx, |_, _| true, &add_op.result(ctx));
+//     Operation::erase(op_ptr, ctx);
+
+//     Some(add_op)
+// }
+
 pub fn canonicalize_sub_to_add(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Option<AddOp> {
-    let op = op_ptr.deref(ctx);
     let name = Operation::get_opid(op_ptr, ctx).name;
     let name_str: &str = name.as_ref();
+
     if name_str != "comb.sub" {
         return None;
     }
 
-    let lhs = op.get_operand(0);
-    let rhs = op.get_operand(1);
-    let rhs_const = get_constant_value(ctx, rhs)?;
+    let (lhs, rhs, ty) = {
+        let op = op_ptr.clone().deref(ctx);
 
-    // Compute two's-complement negation: -C
+        (
+            op.get_operand(0),
+            op.get_operand(1),
+            op.get_result(0).get_type(ctx),
+        )
+    };
+
+    let rhs_const = get_constant_value(ctx, rhs)?;
     let neg_c = eval_neg(&rhs_const);
-    let ty = rhs.get_type(ctx);
     let w = neg_c.bw() as u32;
     let signless_ty = IntegerType::get(ctx, w, Signedness::Signless);
     let neg_attr = IntegerAttr::new(signless_ty, neg_c);
-
     let new_const = ConstantOp::new(ctx, neg_attr);
-    // let parent_block = op_ptr.deref(ctx).get_parent_block().expect("parent block");
     new_const.get_operation().insert_before(ctx, op_ptr);
     let add_op_res = new_const.result(ctx);
     let add_op = AddOp::new(ctx, lhs, add_op_res, ty);
     add_op.get_operation().insert_before(ctx, op_ptr);
-
     let old_res = op_ptr.deref(ctx).get_result(0);
     old_res.replace_some_uses_with(ctx, |_, _| true, &add_op.result(ctx));
     Operation::erase(op_ptr, ctx);
-
     Some(add_op)
 }
 
@@ -151,13 +184,15 @@ pub fn canonicalize_mux(ctx: &mut Context, mux_op: MuxOp) -> Option<Value> {
 /// - `extract(x, 0, W) where W == x.width -> x`
 /// - `replicate(x, 1) -> x`
 pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Option<Value> {
-    let op = op_ptr.deref(ctx);
-    let name = op.get_op_name();
+    let name = Operation::get_opid(op_ptr, ctx).name;
+    let name_str: &str = name.as_ref();
 
-    match name.as_str() {
+    match name_str {
         "comb.add" => {
-            let lhs = op.get_operand(0);
-            let rhs = op.get_operand(1);
+            let (lhs, rhs) = {
+                let op = op_ptr.clone().deref(ctx);
+                (op.get_operand(0), op.get_operand(1))
+            };
             if let Some(c) = get_constant_value(ctx, rhs) {
                 if c.is_zero() {
                     return Some(lhs);
@@ -170,8 +205,10 @@ pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
             }
         }
         "comb.mul" => {
-            let lhs = op.get_operand(0);
-            let rhs = op.get_operand(1);
+            let (lhs, rhs) = {
+                let op = op_ptr.clone().deref(ctx);
+                (op.get_operand(0), op.get_operand(1))
+            };
             let w = NonZero::new(
                 lhs.get_type(ctx)
                     .deref(ctx)
@@ -197,9 +234,9 @@ pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
             }
         }
         "comb.and" => {
-            if op.num_operands() == 2 {
-                let lhs = op.get_operand(0);
-                let rhs = op.get_operand(1);
+            let op = op_ptr.clone().deref(ctx);
+            let (lhs, rhs) = { (op.get_operand(0), op.get_operand(1)) };
+            if op.get_num_operands() == 2 {
                 let w = NonZero::new(
                     lhs.get_type(ctx)
                         .deref(ctx)
@@ -226,9 +263,9 @@ pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
             }
         }
         "comb.or" => {
-            if op.num_operands() == 2 {
-                let lhs = op.get_operand(0);
-                let rhs = op.get_operand(1);
+            let op = op_ptr.clone().deref(ctx);
+            let (lhs, rhs) = { (op.get_operand(0), op.get_operand(1)) };
+            if op.get_num_operands() == 2 {
                 if let Some(c) = get_constant_value(ctx, rhs) {
                     if c.is_zero() {
                         return Some(lhs);
@@ -242,9 +279,11 @@ pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
             }
         }
         "comb.xor" => {
-            if op.num_operands() == 2 {
-                let lhs = op.get_operand(0);
-                let rhs = op.get_operand(1);
+            let (lhs, rhs, num_operands) = {
+                let op = op_ptr.clone().deref(ctx);
+                (op.get_operand(0), op.get_operand(1), op.get_num_operands())
+            };
+            if num_operands == 2 {
                 // xor(x, x) -> 0
                 if lhs == rhs {
                     let w = lhs
@@ -257,7 +296,7 @@ pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
                         APInt::zero(NonZero::new(w as usize)?),
                     );
                     let zero_const = ConstantOp::new(ctx, zero_attr);
-                    zero_const.get_operation().insert_before(op_ptr, ctx);
+                    zero_const.get_operation().insert_before(ctx, op_ptr);
                     return Some(zero_const.result(ctx));
                 }
                 if let Some(c) = get_constant_value(ctx, rhs) {
@@ -313,7 +352,7 @@ pub fn canonicalize_block(ctx: &mut Context, block: Ptr<BasicBlock>) -> Result<u
 
     while changed {
         changed = false;
-        let ops: Vec<Ptr<Operation>> = block.deref(ctx).iter().collect();
+        let ops: Vec<Ptr<Operation>> = block.deref(ctx).iter(ctx).collect();
 
         for op_ptr in ops {
             // Check if op is still in the block
@@ -330,8 +369,8 @@ pub fn canonicalize_block(ctx: &mut Context, block: Ptr<BasicBlock>) -> Result<u
             // 2. Identity simplifications
             if let Some(replacement) = canonicalize_identities(ctx, op_ptr) {
                 let res = op_ptr.deref(ctx).get_result(0);
-                res.replace_some_uses_with(ctx, |_, _| true, replacement);
-                op_ptr.erase(ctx);
+                res.replace_some_uses_with(ctx, |_, _| true, &replacement);
+                Operation::erase(op_ptr, ctx);
                 changed = true;
                 count += 1;
                 continue;
@@ -341,8 +380,8 @@ pub fn canonicalize_block(ctx: &mut Context, block: Ptr<BasicBlock>) -> Result<u
             if let Some(mux_op) = Operation::get_op::<MuxOp>(op_ptr, ctx) {
                 if let Some(replacement) = canonicalize_mux(ctx, mux_op) {
                     let res = op_ptr.deref(ctx).get_result(0);
-                    res.replace_some_uses_with(ctx, |_, _| true, replacement);
-                    op_ptr.erase(ctx);
+                    res.replace_some_uses_with(ctx, |_, _| true, &replacement);
+                    Operation::erase(op_ptr, ctx);
                     changed = true;
                     count += 1;
                     continue;
