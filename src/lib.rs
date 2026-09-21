@@ -14,6 +14,8 @@ pub mod sv;
 
 use pliron::context::Context;
 
+pub use pliron;
+
 #[cfg(all(feature = "comb", not(feature = "default")))]
 pub fn register_comb(ctx: &mut Context) {
     comb::register(ctx);
