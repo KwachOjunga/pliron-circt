@@ -50,12 +50,12 @@ pub enum CanonicalizationResult {
 /// Normalize commutative operands: constants are placed on the right (index 1).
 pub fn canonicalize_commutative(ctx: &mut Context, op_ptr: Ptr<Operation>) -> bool {
     let op = op_ptr.deref(ctx);
-    let name = op.get_op_name();
+    let name = Operation::get_opid(op_ptr, ctx).name;
     let is_commutative = matches!(
-        name.as_str(),
+        name.as_ref(),
         "comb.add" | "comb.mul" | "comb.and" | "comb.or" | "comb.xor"
     );
-    if !is_commutative || op.num_operands() != 2 {
+    if !is_commutative || op.get_num_operands() != 2 {
         return false;
     }
 
@@ -66,9 +66,8 @@ pub fn canonicalize_commutative(ctx: &mut Context, op_ptr: Ptr<Operation>) -> bo
 
     // If lhs is constant and rhs is not, swap them to place constant on the right
     if c0.is_some() && c1.is_none() {
-        let op_mut = &mut *op_ptr.deref_mut(ctx);
-        op_mut.set_operand(0, opd1);
-        op_mut.set_operand(1, opd0);
+        Operation::insert_operand(op_ptr, ctx, 0, opd1);
+        Operation::insert_operand(op_ptr, ctx, 1, opd0);
         true
     } else {
         false
@@ -78,7 +77,9 @@ pub fn canonicalize_commutative(ctx: &mut Context, op_ptr: Ptr<Operation>) -> bo
 /// Simplify subtraction of a constant: `sub(x, C) -> add(x, -C)`.
 pub fn canonicalize_sub_to_add(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Option<AddOp> {
     let op = op_ptr.deref(ctx);
-    if op.get_op_name().as_str() != "comb.sub" {
+    let name = Operation::get_opid(op_ptr, ctx).name;
+    let name_str: &str = name.as_ref();
+    if name_str != "comb.sub" {
         return None;
     }
 
@@ -94,15 +95,15 @@ pub fn canonicalize_sub_to_add(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
     let neg_attr = IntegerAttr::new(signless_ty, neg_c);
 
     let new_const = ConstantOp::new(ctx, neg_attr);
-    let parent_block = op_ptr.deref(ctx).get_parent_block().expect("parent block");
-    new_const.get_operation().insert_before(op_ptr, ctx);
-
-    let add_op = AddOp::new(ctx, lhs, new_const.result(ctx), ty);
-    add_op.get_operation().insert_before(op_ptr, ctx);
+    // let parent_block = op_ptr.deref(ctx).get_parent_block().expect("parent block");
+    new_const.get_operation().insert_before(ctx, op_ptr);
+    let add_op_res = new_const.result(ctx);
+    let add_op = AddOp::new(ctx, lhs, add_op_res, ty);
+    add_op.get_operation().insert_before(ctx, op_ptr);
 
     let old_res = op_ptr.deref(ctx).get_result(0);
-    old_res.replace_some_uses_with(ctx, |_, _| true, add_op.result(ctx));
-    op_ptr.erase(ctx);
+    old_res.replace_some_uses_with(ctx, |_, _| true, &add_op.result(ctx));
+    Operation::erase(op_ptr, ctx);
 
     Some(add_op)
 }
@@ -171,7 +172,12 @@ pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
         "comb.mul" => {
             let lhs = op.get_operand(0);
             let rhs = op.get_operand(1);
-            let w = NonZero::new(lhs.get_type(ctx).deref(ctx).downcast_ref::<IntegerType>()?.width() as usize)?;
+            let w = NonZero::new(
+                lhs.get_type(ctx)
+                    .deref(ctx)
+                    .downcast_ref::<IntegerType>()?
+                    .width() as usize,
+            )?;
             let one = APInt::uone(w);
             if let Some(c) = get_constant_value(ctx, rhs) {
                 if c == one {
@@ -194,7 +200,12 @@ pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
             if op.num_operands() == 2 {
                 let lhs = op.get_operand(0);
                 let rhs = op.get_operand(1);
-                let w = NonZero::new(lhs.get_type(ctx).deref(ctx).downcast_ref::<IntegerType>()?.width() as usize)?;
+                let w = NonZero::new(
+                    lhs.get_type(ctx)
+                        .deref(ctx)
+                        .downcast_ref::<IntegerType>()?
+                        .width() as usize,
+                )?;
                 let all_ones = APInt::umax(w);
                 if let Some(c) = get_constant_value(ctx, rhs) {
                     if c == all_ones {
@@ -236,7 +247,11 @@ pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
                 let rhs = op.get_operand(1);
                 // xor(x, x) -> 0
                 if lhs == rhs {
-                    let w = lhs.get_type(ctx).deref(ctx).downcast_ref::<IntegerType>()?.width();
+                    let w = lhs
+                        .get_type(ctx)
+                        .deref(ctx)
+                        .downcast_ref::<IntegerType>()?
+                        .width();
                     let zero_attr = IntegerAttr::new(
                         IntegerType::get(ctx, w, Signedness::Signless),
                         APInt::zero(NonZero::new(w as usize)?),
@@ -260,8 +275,18 @@ pub fn canonicalize_identities(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
         "comb.extract" => {
             let ext = Operation::get_op::<ExtractOp>(op_ptr, ctx)?;
             let low_bit = ext.low_bit(ctx).value().to_u64();
-            let in_w = ext.val(ctx).get_type(ctx).deref(ctx).downcast_ref::<IntegerType>()?.width();
-            let res_w = ext.result(ctx).get_type(ctx).deref(ctx).downcast_ref::<IntegerType>()?.width();
+            let in_w = ext
+                .val(ctx)
+                .get_type(ctx)
+                .deref(ctx)
+                .downcast_ref::<IntegerType>()?
+                .width();
+            let res_w = ext
+                .result(ctx)
+                .get_type(ctx)
+                .deref(ctx)
+                .downcast_ref::<IntegerType>()?
+                .width();
             if low_bit == 0 && in_w == res_w {
                 return Some(ext.val(ctx));
             }

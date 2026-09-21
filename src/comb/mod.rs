@@ -5,6 +5,7 @@
 //!
 //! Provides zero-latency arithmetic, logical, comparison, and bit-level operations.
 
+mod canonicalization;
 mod cycles;
 mod eval;
 pub mod ops;
