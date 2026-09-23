@@ -190,7 +190,7 @@ impl CombOpExt for SubOp {
 impl SubOp {
     /// Create a new `comb.sub`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        assert_binary_arithmetic(ctx, &vec![lhs, rhs], res_ty, "comb.sub");
+        assert_binary_arithmetic(ctx, &[lhs, rhs], res_ty, "comb.sub");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -388,7 +388,7 @@ impl CombOpExt for DivSOp {
 impl DivSOp {
     /// Create a new `comb.divs`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        assert_binary_arithmetic(ctx, &vec![lhs, rhs], res_ty, "comb.divs");
+        assert_binary_arithmetic(ctx, &[lhs, rhs], res_ty, "comb.divs");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -453,7 +453,7 @@ impl CombOpExt for ModUOp {
 impl ModUOp {
     /// Create a new `comb.modu`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        assert_binary_arithmetic(ctx, &vec![lhs, rhs], res_ty, "comb.modu");
+        assert_binary_arithmetic(ctx, &[lhs, rhs], res_ty, "comb.modu");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -521,7 +521,7 @@ impl CombOpExt for ModSOp {
 impl ModSOp {
     /// Create a new `comb.mods`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        assert_binary_arithmetic(ctx, &vec![lhs, rhs], res_ty, "comb.mods");
+        assert_binary_arithmetic(ctx, &[lhs, rhs], res_ty, "comb.mods");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -586,7 +586,7 @@ impl CombOpExt for ShlOp {
 impl ShlOp {
     /// Create a new `comb.shl`.
     pub fn new(ctx: &mut Context, val: Value, shift: Value, res_ty: TypeHandle) -> Self {
-        assert_binary_arithmetic(ctx, &vec![val, shift], res_ty, "comb.shl");
+        assert_binary_arithmetic(ctx, &[val, shift], res_ty, "comb.shl");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -651,7 +651,7 @@ impl CombOpExt for ShrUOp {
 impl ShrUOp {
     /// Create a new `comb.shru`.
     pub fn new(ctx: &mut Context, val: Value, shift: Value, res_ty: TypeHandle) -> Self {
-        assert_binary_arithmetic(ctx, &vec![val, shift], res_ty, "comb.shru");
+        assert_binary_arithmetic(ctx, &[val, shift], res_ty, "comb.shru");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
@@ -719,7 +719,7 @@ impl CombOpExt for ShrSOp {
 impl ShrSOp {
     /// Create a new `comb.shrs`.
     pub fn new(ctx: &mut Context, val: Value, shift: Value, res_ty: TypeHandle) -> Self {
-        assert_binary_arithmetic(ctx, &vec![val, shift], res_ty, "comb.shrs");
+        assert_binary_arithmetic(ctx, &[val, shift], res_ty, "comb.shrs");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),
