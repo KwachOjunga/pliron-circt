@@ -144,26 +144,27 @@ pub fn verify_variadic_bitwise(op: &Operation, ctx: &Context, op_name: &str) -> 
     Ok(())
 }
 
-pub fn assert_binary_arithmetic(
-    ctx: &Context,
-    lhs: Value,
-    rhs: Value,
-    res_ty: TypeHandle,
-    op_name: &str,
-) {
-    let w_lhs = get_integer_width(ctx, lhs.get_type(ctx))
-        .unwrap_or_else(|e| panic!("{op_name} lhs type error: {e}"));
-    let w_rhs = get_integer_width(ctx, rhs.get_type(ctx))
-        .unwrap_or_else(|e| panic!("{op_name} rhs type error: {e}"));
-    assert_eq!(
-        w_lhs, w_rhs,
-        "{op_name} operand width mismatch: lhs has width {w_lhs}, rhs has width {w_rhs}"
-    );
+pub fn assert_binary_arithmetic(ctx: &Context, args: &[Value], res_ty: TypeHandle, op_name: &str) {
+    let args_width = args
+        .iter()
+        .map(|arg| {
+            get_integer_width(ctx, arg.get_type(ctx))
+                .unwrap_or_else(|e| panic!("{op_name} {:#?} type error: {e}", arg))
+        })
+        .collect::<Vec<_>>();
+    let first_w = args_width[0];
+    for (i, arg_w) in args_width.iter().enumerate().skip(1) {
+        assert_eq!(
+            arg_w, &first_w,
+            "{op_name} operand width mismatch: arg {i} has width {arg_w}, first arg has width {first_w}"
+        );
+    }
+
     let w_res = get_integer_width(ctx, res_ty)
         .unwrap_or_else(|e| panic!("{op_name} result type error: {e}"));
     assert_eq!(
-        w_res, w_lhs,
-        "{op_name} result width mismatch: expected width {w_lhs}, found {w_res}"
+        w_res, first_w,
+        "{op_name} result width mismatch: expected width {first_w}, found {w_res}"
     );
 }
 

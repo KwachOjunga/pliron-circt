@@ -320,7 +320,7 @@ impl CombOpExt for DivUOp {
 impl DivUOp {
     /// Create a new `comb.divu`.
     pub fn new(ctx: &mut Context, lhs: Value, rhs: Value, res_ty: TypeHandle) -> Self {
-        assert_binary_arithmetic(ctx, &vec![lhs, rhs], res_ty, "comb.divu");
+        assert_binary_arithmetic(ctx, &[lhs, rhs], res_ty, "comb.divu");
         let op = Operation::new(
             ctx,
             Self::get_concrete_op_info(),

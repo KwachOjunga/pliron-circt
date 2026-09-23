@@ -81,7 +81,7 @@ pub fn canonicalize_sub_to_add(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
     if name_str != "comb.sub" {
         return None;
     }
-    let (lhs, rhs, ty) = {
+    let (lhs, rhs, res_ty) = {
         let op = op_ptr.clone().deref(ctx);
         (
             op.get_operand(0),
@@ -100,7 +100,7 @@ pub fn canonicalize_sub_to_add(ctx: &mut Context, op_ptr: Ptr<Operation>) -> Opt
     let new_const = ConstantOp::new(ctx, neg_attr);
     new_const.get_operation().insert_before(ctx, op_ptr);
     let add_op_res = new_const.result(ctx);
-    let add_op = AddOp::new(ctx, lhs, add_op_res, ty);
+    let add_op = AddOp::new(ctx, vec![lhs, add_op_res], res_ty);
     add_op.get_operation().insert_before(ctx, op_ptr);
 
     let old_res = op_ptr.deref(ctx).get_result(0);
