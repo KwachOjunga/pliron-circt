@@ -158,7 +158,7 @@ fn test_xdsl_comb_operations_parity() {
     b_op.get_operation().insert_at_back(body, &ctx);
 
     // comb.add %a, %b : i32
-    let add_op = AddOp::new(&mut ctx, a, b, i32_ty);
+    let add_op = AddOp::new(&mut ctx, vec![a, b], i32_ty);
     assert_eq!(add_op.result(&ctx).get_type(&ctx), i32_ty);
     add_op.get_operation().insert_at_back(body, &ctx);
 

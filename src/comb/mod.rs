@@ -10,6 +10,7 @@ mod cycles;
 mod eval;
 pub mod ops;
 pub mod types;
+mod utils;
 
 use pliron::context::Context;
 

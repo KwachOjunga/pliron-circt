@@ -55,7 +55,7 @@ fn test_comb_arithmetic_ops() {
     let v10 = c10.result(&ctx);
     let v20 = c20.result(&ctx);
 
-    let add = AddOp::new(&mut ctx, v10, v20, i32_ty);
+    let add = AddOp::new(&mut ctx, vec![v10, v20], i32_ty);
     assert_eq!(add.result(&ctx).get_type(&ctx), i32_ty);
     add.get_operation().insert_at_back(body, &ctx);
 
@@ -63,7 +63,7 @@ fn test_comb_arithmetic_ops() {
     assert_eq!(sub.result(&ctx).get_type(&ctx), i32_ty);
     sub.get_operation().insert_at_back(body, &ctx);
 
-    let mul = MulOp::new(&mut ctx, v10, v20, i32_ty);
+    let mul = MulOp::new(&mut ctx, vec![v10, v20], i32_ty);
     assert_eq!(mul.result(&ctx).get_type(&ctx), i32_ty);
     mul.get_operation().insert_at_back(body, &ctx);
 
