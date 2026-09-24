@@ -10,11 +10,12 @@ keywords = ["pliron", "hardware", "circt", "compiler", "rtl"]
 authors = ["Reginald Ojunga"]
 
 [features]
-default = ["sv", "hw", "comb", "seq"]
+default = ["sv", "hw", "comb", "seq", "fsm"]
 sv = []
 hw = []
 comb = []
 seq = []
+fsm = []
 
 [dependencies]
 pliron =  {git = "https://github.com/pliron-org/pliron", rev = "e66025a"}

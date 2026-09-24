@@ -5,6 +5,8 @@
 
 #[cfg(feature = "comb")]
 pub mod comb;
+#[cfg(feature = "fsm")]
+pub mod fsm;
 #[cfg(feature = "hw")]
 pub mod hw;
 #[cfg(feature = "seq")]
@@ -19,6 +21,11 @@ pub use pliron;
 #[cfg(all(feature = "comb", not(feature = "default")))]
 pub fn register_comb(ctx: &mut Context) {
     comb::register(ctx);
+}
+
+#[cfg(all(feature = "fsm", not(feature = "default")))]
+pub fn register_fsm(ctx: &mut Context) {
+    fsm::register(ctx);
 }
 
 #[cfg(all(feature = "hw", not(feature = "default")))]
@@ -43,4 +50,5 @@ pub fn register_all(ctx: &mut Context) {
     comb::register(ctx);
     seq::register(ctx);
     sv::register(ctx);
+    fsm::register(ctx);
 }
