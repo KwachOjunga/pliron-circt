@@ -578,3 +578,129 @@ endmodule
     assert!(rendered.contains("always_ff @(posedge clk)"));
     assert!(rendered.contains("state <= d;"));
 }
+
+// #[test]
+// fn test_sv_parser_bit_select_in_always() {
+//     let mut ctx = Context::new();
+//     register_all(&mut ctx);
+//     let sv_code = r#"
+// module bit_select_ff (
+//     input  logic       clk,
+//     input  logic [7:0] d,
+//     output logic       q
+// );
+//     logic [7:0] state;
+//     always_ff @(posedge clk) begin
+//         state <= d;
+//     end
+//     assign q = state[0];          // true bit-select
+// endmodule
+// "#;
+//     let module = parse_sv_module(&mut ctx, sv_code).expect("bit-select module should parse");
+//     verify_op(&module, &ctx).expect("bit-select module should verify");
+//     let rendered = render_module(&ctx, &module).expect("bit-select module should render");
+//     println!("{}", rendered);
+//     assert!(rendered.contains("module bit_select_ff"));
+//     assert!(rendered.contains("state[0]"));
+// }
+
+// #[test]
+// fn test_sv_parser_part_select_slice() {
+//     let mut ctx = Context::new();
+//     register_all(&mut ctx);
+//     let sv_code = r#"
+// module part_select_slice (
+//     input  logic [15:0] data,
+//     output logic [7:0]  hi,
+//     output logic [3:0]  mid
+// );
+//     assign hi  = data[15:8];      // part-select
+//     assign mid = data[7:4];       // another part-select
+// endmodule
+// "#;
+//     let module = parse_sv_module(&mut ctx, sv_code).expect("part-select module should parse");
+//     verify_op(&module, &ctx).expect("part-select module should verify");
+//     let rendered = render_module(&ctx, &module).expect("part-select module should render");
+//     println!("{}", rendered);
+//     assert!(rendered.contains("module part_select_slice"));
+//     assert!(rendered.contains("data[15:8]") || rendered.contains("data[15 : 8]"));
+//     assert!(rendered.contains("data[7:4]") || rendered.contains("data[7 : 4]"));
+// }
+
+// #[test]
+// fn test_sv_parser_mixed_selects_sequential() {
+//     let mut ctx = Context::new();
+//     register_all(&mut ctx);
+//     let sv_code = r#"
+// module mixed_selects (
+//     input  logic       clk,
+//     input  logic [7:0] d,
+//     output logic [3:0] q_lo,
+//     output logic       q_bit
+// );
+//     logic [7:0] state;
+//     always_ff @(posedge clk) begin
+//         state <= d;
+//     end
+//     assign q_lo  = state[3:0];    // part-select
+//     assign q_bit = state[7];      // bit-select
+// endmodule
+// "#;
+//     let module = parse_sv_module(&mut ctx, sv_code).expect("mixed-selects module should parse");
+//     verify_op(&module, &ctx).expect("mixed-selects module should verify");
+//     let rendered = render_module(&ctx, &module).expect("mixed-selects module should render");
+//     println!("{}", rendered);
+//     assert!(rendered.contains("module mixed_selects"));
+//     assert!(rendered.contains("state[3:0]") || rendered.contains("state[3 : 0]"));
+//     assert!(rendered.contains("state[7]"));
+// }
+
+// #[test]
+// fn test_sv_parser_vector_decl_no_select() {
+//     // deliberately only declarations + whole-vector assigns
+//     // (the case that previously triggered the false bit-select error)
+//     let mut ctx = Context::new();
+//     register_all(&mut ctx);
+//     let sv_code = r#"
+// module vector_only (
+//     input  logic       clk,
+//     input  logic [3:0] a,
+//     input  logic [3:0] b,
+//     output logic [3:0] y
+// );
+//     logic [3:0] r;
+//     always_ff @(posedge clk) begin
+//         r <= a;
+//     end
+//     assign y = r;
+// endmodule
+// "#;
+//     let module = parse_sv_module(&mut ctx, sv_code).expect("vector-only module should parse");
+//     verify_op(&module, &ctx).expect("vector-only module should verify");
+//     let rendered = render_module(&ctx, &module).expect("vector-only module should render");
+//     println!("{}", rendered);
+//     assert!(rendered.contains("module vector_only"));
+//     assert!(rendered.contains("r <= a;"));
+//     assert!(rendered.contains("assign y = r;"));
+// }
+
+// #[test]
+// fn test_sv_parser_nested_bit_select_expr() {
+//     let mut ctx = Context::new();
+//     register_all(&mut ctx);
+//     let sv_code = r#"
+// module nested_select (
+//     input  logic [7:0] data,
+//     input  logic [2:0] idx,
+//     output logic       bit_out
+// );
+//     assign bit_out = data[idx];   // variable bit-select
+// endmodule
+// "#;
+//     let module = parse_sv_module(&mut ctx, sv_code).expect("nested bit-select module should parse");
+//     verify_op(&module, &ctx).expect("nested bit-select module should verify");
+//     let rendered = render_module(&ctx, &module).expect("nested bit-select module should render");
+//     println!("{}", rendered);
+//     assert!(rendered.contains("module nested_select"));
+//     assert!(rendered.contains("data[idx]"));
+// }
