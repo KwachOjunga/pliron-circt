@@ -466,7 +466,7 @@ impl<'a> SvModuleLowerer<'a> {
         always: RefNode<'a>,
         body: Ptr<pliron::basic_block::BasicBlock>,
     ) -> Result<()> {
-        if let RefNode::AlwaysConstruct(ref ac) = always {
+        if let RefNode::AlwaysConstruct(ac) = always {
             match ac.nodes.0 {
                 sv_parser::AlwaysKeyword::AlwaysComb(_) => {
                     self.lower_always_comb(&ac.nodes.1, body)
@@ -505,7 +505,7 @@ impl<'a> SvModuleLowerer<'a> {
             .ok_or_else(|| verify_error!(Location::Unknown, "always_ff requires timing control"))?;
 
         let (clk_name, rst_info) =
-            if let RefNode::ProceduralTimingControlStatement(ref pts) = timing_stmt {
+            if let RefNode::ProceduralTimingControlStatement(pts) = timing_stmt {
                 self.extract_clock_and_reset_events(&pts.nodes.0)?
             } else {
                 return verify_err!(Location::Unknown, "invalid procedural timing statement");
@@ -517,11 +517,10 @@ impl<'a> SvModuleLowerer<'a> {
         if let Some(cond_stmt) = unwrap_node!(stmt, ConditionalStatement) {
             let (is_async, rst_name, rst_polarity) = if let Some((r_name, r_pol)) = rst_info {
                 (true, r_name, r_pol)
-            } else if let RefNode::ConditionalStatement(cs) = cond_stmt.clone() {
-                let cond_text = self
-                    .node_text(cs.nodes.2.nodes)
-                    .trim_matches(['(', ')'])
-                    .trim();
+            } else if let Some(RefNode::ConditionalStatement(cs)) =
+                unwrap_node!(cond_stmt.clone(), CondPredicate)
+            {
+                let cond_text = self.node_text(cs).trim_matches(['(', ')']).trim();
                 if cond_text.starts_with(['!', '~']) {
                     let name = cond_text.trim_start_matches(['!', '~']).trim().to_string();
                     (false, name, "active_low".to_string())
@@ -577,7 +576,7 @@ impl<'a> SvModuleLowerer<'a> {
                 .trim()
                 .trim_matches(['(', ')']);
             let is_negedge = trimmed.contains("negedge");
-            let is_posedge = trimmed.contains("posedge");
+            let _is_posedge = trimmed.contains("posedge");
 
             let id = trimmed
                 .split_whitespace()
@@ -590,10 +589,8 @@ impl<'a> SvModuleLowerer<'a> {
             } else {
                 let pol = if is_negedge {
                     "active_low".to_string()
-                } else if is_posedge {
-                    "active_high".to_string()
                 } else {
-                    "active_high".to_string()
+                    "active_high".to_string() // executed if is_posedge
                 };
                 rst_info = Some((id.to_string(), pol));
             }
@@ -674,7 +671,7 @@ impl<'a> SvModuleLowerer<'a> {
         inst: RefNode<'a>,
         body: Ptr<pliron::basic_block::BasicBlock>,
     ) -> Result<()> {
-        if let RefNode::ModuleInstantiation(ref mi) = inst {
+        if let RefNode::ModuleInstantiation(mi) = inst {
             let target_mod = self.node_text(&mi.nodes.0).to_string();
 
             for hi in mi.nodes.2.contents() {
@@ -687,19 +684,18 @@ impl<'a> SvModuleLowerer<'a> {
                             let val = self.lower_expression(RefNode::Expression(expr), body)?;
                             port_vals.push(val);
                         }
-                    } else if let RefNode::NamedPortConnection(npc) = conn {
-                        if let sv_parser::NamedPortConnection::Identifier(id_conn) = npc {
-                            if let Some(ref paren) = id_conn.nodes.3 {
-                                if let Some(ref expr) = paren.nodes.1 {
-                                    let val =
-                                        self.lower_expression(RefNode::Expression(expr), body)?;
-                                    port_vals.push(val);
-                                }
-                            } else {
-                                let port_name = self.node_text(&id_conn.nodes.2);
-                                let val = self.resolve_val(port_name)?;
+                    } else if let RefNode::NamedPortConnection(npc) = conn
+                        && let sv_parser::NamedPortConnection::Identifier(id_conn) = npc
+                    {
+                        if let Some(ref paren) = id_conn.nodes.3 {
+                            if let Some(ref expr) = paren.nodes.1 {
+                                let val = self.lower_expression(RefNode::Expression(expr), body)?;
                                 port_vals.push(val);
                             }
+                        } else {
+                            let port_name = self.node_text(&id_conn.nodes.2);
+                            let val = self.resolve_val(port_name)?;
+                            port_vals.push(val);
                         }
                     }
                 }
@@ -949,8 +945,9 @@ impl<'a> SvModuleLowerer<'a> {
         let name = self.node_text(id_node);
         let base_val = self.resolve_val(name)?;
 
-        // Check if there is a select: [msb:lsb] (slice) or [idx] (index)
+        // Only attempt select lowering when a Select child is present.
         if let Some(select) = unwrap_node!(hier, Select) {
+            // 1. Constant range / part-select  a[msb:lsb]
             if let Some(range) = unwrap_node!(select.clone(), ConstantRange) {
                 let (msb, lsb) = match range {
                     RefNode::ConstantRange(r) => {
@@ -961,24 +958,28 @@ impl<'a> SvModuleLowerer<'a> {
                     }
                     _ => (0, 0),
                 };
-
                 let low_bit = lsb.min(msb) as u32;
                 let slice_w = msb.max(lsb) as u32 - low_bit + 1;
                 let low_attr = int_attr(self.ctx, 32, low_bit as u64);
                 let w_attr = int_attr(self.ctx, 32, slice_w as u64);
                 let slice_ty: TypeHandle =
                     IntegerType::get(self.ctx, slice_w, Signedness::Signless).into();
-
                 let slice_op = SliceExprOp::new(self.ctx, base_val, low_attr, w_attr, slice_ty);
                 let res = slice_op.result(self.ctx);
                 slice_op.get_operation().insert_at_back(body, self.ctx);
                 return Ok(res);
             }
 
-            if let Some(bit_select) = unwrap_node!(select, BitSelect) {
-                let idx_expr = unwrap_node!(bit_select, Expression).ok_or_else(|| {
-                    verify_error!(Location::Unknown, "bit select missing index expression")
-                })?;
+            // 2. Bit-select  a[idx]
+            //    Be defensive: accept both
+            //      Select → BitSelect → Expression
+            //    and the flatter shape some parsers emit
+            //      Select → Expression
+            let idx_expr = unwrap_node!(select.clone(), BitSelect)
+                .and_then(|bs| unwrap_node!(bs, Expression))
+                .or_else(|| unwrap_node!(select, Expression));
+
+            if let Some(idx_expr) = idx_expr {
                 let idx_val = self.lower_expression(idx_expr, body)?;
                 let res_ty: TypeHandle = IntegerType::get(self.ctx, 1, Signedness::Signless).into();
                 let idx_op = IndexExprOp::new(self.ctx, base_val, idx_val, res_ty);
@@ -986,8 +987,12 @@ impl<'a> SvModuleLowerer<'a> {
                 idx_op.get_operation().insert_at_back(body, self.ctx);
                 return Ok(res);
             }
+
+            // Select node existed but we could not recognise a range or index.
+            // Fall through and treat as a plain identifier.
         }
 
+        // No select (or unrecognised select) → just the base value.
         Ok(base_val)
     }
 
@@ -1055,7 +1060,7 @@ impl<'a> SvModuleLowerer<'a> {
 /// Convenience entry point to parse a SystemVerilog source string into a Pliron `ModuleOp`.
 pub fn parse_sv_module(ctx: &mut Context, source: &str) -> Result<ModuleOp> {
     let defines = std::collections::HashMap::new();
-    let (tree, _defines) = parse_sv_str(source, "input.sv", &defines, &[] as &[&str], false, false)
+    let (tree, _defines) = parse_sv_str(source, "", &defines, &[] as &[&str], false, false)
         .map_err(|e| verify_error!(Location::Unknown, "sv-parser syntax error: {:?}", e))?;
 
     let mut lowerer = SvModuleLowerer::new(ctx, source, &tree);
