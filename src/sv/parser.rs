@@ -329,7 +329,7 @@ impl<'a> SvModuleLowerer<'a> {
     ) -> Result<()> {
         let (target_name, expr_node) = match assign {
             RefNode::ContinuousAssign(sv_parser::ContinuousAssign::Net(n)) => {
-                let net_assignment = unwrap_node!(&**n, NetAssignment).ok_or_else(|| {
+                let net_assignment = unwrap_node!(&n.nodes.3, NetAssignment).ok_or_else(|| {
                     verify_error!(Location::Unknown, "continuous assign missing assignment")
                 })?;
                 if let RefNode::NetAssignment(na) = net_assignment {
@@ -340,9 +340,10 @@ impl<'a> SvModuleLowerer<'a> {
                 }
             }
             RefNode::ContinuousAssign(sv_parser::ContinuousAssign::Variable(v)) => {
-                let var_assignment = unwrap_node!(&**v, VariableAssignment).ok_or_else(|| {
-                    verify_error!(Location::Unknown, "continuous assign missing assignment")
-                })?;
+                let var_assignment =
+                    unwrap_node!(&v.nodes.2, VariableAssignment).ok_or_else(|| {
+                        verify_error!(Location::Unknown, "continuous assign missing assignment")
+                    })?;
                 if let RefNode::VariableAssignment(va) = var_assignment {
                     let target = self.node_text(&va.nodes.0).to_string();
                     (target, RefNode::Expression(&va.nodes.2))
