@@ -17,7 +17,7 @@ comb = []
 seq = []
 
 [dependencies]
-pliron =  {git = "https://github.com/pliron-org/pliron", rev = "e66025a", version = "0.17.0"}
+pliron =  {git = "https://github.com/pliron-org/pliron", version = "0.18.0"}
 thiserror = "2"
 log = { version = "0" }
 rustc-hash = "2"
