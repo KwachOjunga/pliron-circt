@@ -17,12 +17,12 @@ comb = []
 seq = []
 
 [dependencies]
-pliron =  {git = "https://github.com/pliron-org/pliron", version = "0.18.0"}
+pliron =   "0.18.0"
 thiserror = "2"
 log = { version = "0" }
 rustc-hash = "2"
 awint = "0"
-sv-parser = { git = "https://github.com/KwachOjunga/sv-parser", version = "0.13.5" }
+sv-parser =  "0.13.5"
 
 [dev-dependencies]
 expect-test = "1"
