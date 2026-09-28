@@ -1,6 +1,6 @@
 # pliron-circt
 
-Dialect ecosystem for [pliron](https://github.com/pliron-org/pliron), retaining parity with LLVM CIRCT / MLIR IR.
+Hardware dialect ecosystem retaining parity with LLVM CIRCT / MLIR IR.
 
 ## Dialect Ecosystem Overview
 
@@ -23,5 +23,5 @@ Lower structurally only after these semantic analyses have run.
 
 # References
 
-[CIRCT website](https://circt.llvm.org)
-[CIRCT repository](https://github.com/llvm/circt)
+- [CIRCT website](https://circt.llvm.org)
+- [CIRCT repository](https://github.com/llvm/circt)
