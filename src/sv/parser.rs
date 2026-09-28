@@ -769,9 +769,9 @@ impl<'a> SvModuleLowerer<'a> {
             RefNode::ExpressionBinary(b) => {
                 let op = self.node_text(&b.nodes.1).to_string();
                 (
-                    RefNode::ExpressionBinaryOperand(&b.nodes.0),
+                    RefNode::Expression(&b.nodes.0),
                     op,
-                    RefNode::ExpressionBinaryOperand(&b.nodes.3),
+                    RefNode::Expression(&b.nodes.3),
                 )
             }
             RefNode::ConstantExpressionBinary(b) => {
