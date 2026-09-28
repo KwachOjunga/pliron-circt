@@ -4,20 +4,18 @@
 
 This document defines the engineering rules for designing, implementing, reviewing, and documenting hardware-oriented IR dialects.
 
-The goal is not to prescribe one hardware IR architecture. The goal is to ensure that every dialect has:
+The primary objective is describing multiple hardware ir architectures ensuring each 
+dialect has a clearly defined semantic contract, an explicit abstraction level, well-defined legality and invariants, and useful composition with other dialects.
+Each dialect is to have an analyzable operations and types with predictable lowering 
+behavior and enough information for verification, transformation, simulation, synthesis, and 
+code generation where applicable.
+Documentation explains the *meaning* of the IR rather than merely listing its syntax.
 
-- a clearly defined semantic contract;
-- an explicit abstraction level;
-- well-defined legality and invariants;
-- useful composition with other dialects;
-- analyzable operations and types;
-- predictable lowering behavior;
-- enough information for verification, transformation, simulation, synthesis, and code generation where applicable;
-- documentation that explains the *meaning* of the IR rather than merely listing its syntax.
+Hardware IR is particularly sensitive to underspecified semantics. A representation that
+looks structurally plausible can nevertheless be wrong if it loses information about time, 
+state, connectivity, bit width, signedness, reset behavior, clocking, latency, ordering, 
+resource constraints, or event semantics.
 
-Hardware IR is particularly sensitive to underspecified semantics. A representation that looks structurally plausible can nevertheless be wrong if it loses information about time, state, connectivity, bit width, signedness, reset behavior, clocking, latency, ordering, resource constraints, or event semantics.
-
----
 
 # 1. Core Design Principle
 
@@ -40,7 +38,6 @@ Before adding an operation, type, attribute, or region, answer:
 
 If these questions cannot be answered precisely, the construct is not ready to be added to the dialect.
 
----
 
 # 2. Establish the Abstraction Level
 
@@ -83,12 +80,10 @@ Then state what it does **not** mean.
 
 This prevents accidental semantic inflation.
 
----
 
 # 3. Separate Structural, Behavioral, Temporal, and Physical Semantics
 
 Hardware constructs often combine several dimensions.
-
 Document them separately.
 
 ### Structural semantics
@@ -144,7 +139,6 @@ Examples:
 
 Do not imply physical meaning from a purely logical construct unless that meaning is part of the specification.
 
----
 
 # 4. Define the Semantic Model Before the Syntax
 
@@ -190,7 +184,6 @@ availability + acceptance -> transaction
 
 The notation is not mandatory. The important requirement is that the semantics be explicit.
 
----
 
 # 5. Types Are Semantic Contracts
 
@@ -239,7 +232,6 @@ Do not conflate:
 
 These have different semantics.
 
----
 
 # 6. SSA Does Not Automatically Give Hardware Its Meaning
 
@@ -269,7 +261,6 @@ In particular, document whether:
 - an operation creates an identity-bearing object;
 - multiple operations may refer to the same hardware object.
 
----
 
 # 7. Hardware State Must Be Explicit
 
@@ -306,7 +297,6 @@ else:
 
 The exact priority must be part of the operation contract.
 
----
 
 # 8. Clock Semantics
 
@@ -329,8 +319,6 @@ Avoid representing clocks as ordinary `i1` values unless the semantics make this
 
 A boolean waveform and a clock domain are not necessarily equivalent concepts.
 
----
-
 # 9. Reset Semantics
 
 For every reset-bearing construct specify:
@@ -347,8 +335,6 @@ For every reset-bearing construct specify:
 Do not hide reset semantics in arbitrary attributes without a clear reason.
 
 Two operations that look identical but differ in reset priority are semantically different.
-
----
 
 # 10. Time and Events
 
@@ -379,8 +365,6 @@ Distinguish:
 - initiation interval.
 
 These are not interchangeable.
-
----
 
 # 11. Combinational Semantics
 
@@ -415,8 +399,6 @@ The first expresses behavior; the second may express implementation.
 
 Do not encode implementation-specific assumptions in behavioral operations unless required.
 
----
-
 # 12. Sequential Semantics
 
 Sequential operations should define:
@@ -442,8 +424,6 @@ If an operation is pipelined, document:
 
 A "pipeline" attribute without a precise interpretation is insufficient.
 
----
-
 # 13. Connectivity and Drivers
 
 Hardware connectivity differs from ordinary SSA use-def chains.
@@ -460,8 +440,6 @@ Document:
 - whether inout/bidirectional ports are supported.
 
 Never silently collapse distinct hardware objects into equivalent SSA values if hardware identity matters.
-
----
 
 # 14. Hierarchy
 
@@ -494,8 +472,6 @@ Do not use names as substitutes for semantic identity.
 
 Names can change during transformations.
 
----
-
 # 15. Parameterization
 
 Hardware designs frequently require:
@@ -522,8 +498,6 @@ For parameters document:
 Avoid arbitrary textual substitution as the semantic definition of parameters.
 
 A parameter should have a well-defined value domain and evaluation model.
-
----
 
 # 16. Memory Semantics
 
@@ -559,7 +533,6 @@ undefined
 
 Do not leave read-during-write behavior implicit.
 
----
 
 # 17. Protocol and Handshake Semantics
 
@@ -594,14 +567,11 @@ But the dialect must additionally specify:
 
 Do not assume that naming signals `valid` and `ready` automatically defines their semantics.
 
----
 
 # 18. Control Flow
 
 Hardware control flow is not necessarily software control flow.
-
 Document whether branches represent:
-
 - compile-time selection;
 - combinational muxing;
 - sequential control;
@@ -610,7 +580,6 @@ Document whether branches represent:
 - transaction routing.
 
 A basic-block graph alone does not establish temporal semantics.
-
 When representing loops, distinguish:
 
 - combinational feedback;
@@ -619,12 +588,9 @@ When representing loops, distinguish:
 - static elaboration loops;
 - runtime loops.
 
----
-
 # 19. Combinational Cycles and Sequential Cycles
 
 The dialect must explicitly state whether cycles are legal.
-
 If combinational cycles are illegal:
 
 - provide verification;
@@ -638,12 +604,9 @@ If sequential feedback is legal:
 
 Do not rely on downstream synthesis tools to determine whether an IR cycle is meaningful.
 
----
-
 # 20. Unknown, High-Impedance, and Multi-Valued Logic
 
 If the dialect models Verilog-like semantics, decide whether it represents:
-
 - 2-state logic;
 - 4-state logic;
 - symbolic unknowns;
@@ -665,17 +628,13 @@ X == 1
 as ordinary boolean semantics.
 
 Document how optimization interacts with unknown values.
-
 An optimization valid under 2-state semantics may be invalid under 4-state semantics.
-
----
 
 # 21. Attributes
 
 Use attributes for semantic metadata that does not deserve a standalone SSA operation or type.
 
 Examples:
-
 - latency;
 - reset polarity;
 - implementation hints;
@@ -687,31 +646,22 @@ Examples:
 Distinguish:
 
 ### Semantic attributes
-
 Changing the attribute changes program meaning.
 
 ### Optimization attributes
-
 Changing the attribute changes optimization behavior but should preserve semantics.
 
 ### Code-generation attributes
-
 Changing the attribute affects emitted representation.
 
 ### Naming/debug attributes
-
 Primarily affect observability or presentation.
-
 Document which category each attribute belongs to.
-
 Avoid turning attributes into an unstructured escape hatch.
-
----
 
 # 22. Operations
 
 Every operation should document at minimum:
-
 - purpose;
 - semantic definition;
 - operands;
@@ -728,9 +678,7 @@ Every operation should document at minimum:
 - canonicalization;
 - lowering;
 - examples.
-
 Where relevant also document:
-
 - clock;
 - reset;
 - latency;
@@ -741,14 +689,11 @@ Where relevant also document:
 
 An operation named `foo` is not sufficiently documented by saying "performs foo."
 
----
-
 # 23. Traits
 
 Use traits for structural properties that are reusable and mechanically meaningful.
 
 Examples include:
-
 - single block;
 - terminator;
 - isolated-from-above;
@@ -758,16 +703,13 @@ Examples include:
 - region properties.
 
 A trait should express a property that is genuinely invariant.
-
 Do not add traits simply because they make generated documentation look complete.
 
----
-
 # 24. Interfaces
-
 Interfaces should expose semantic capabilities needed by generic analyses and transformations.
 
-Prefer interfaces when multiple unrelated operations or dialects need to answer the same question.
+Prefer interfaces when multiple unrelated operations or dialects need to answer the same 
+question.
 
 Examples:
 
@@ -789,16 +731,13 @@ if operation is MyDialectFooOp
 
 when the actual requirement is a general capability.
 
-MLIR explicitly uses interfaces to decouple analyses and transformations from concrete operation classes.
-
----
+MLIR explicitly uses interfaces to decouple analyses and transformations from concrete 
+operation classes.
 
 # 25. Verification
 
 Every non-trivial construct should have explicit verification rules.
-
 Verification should check properties such as:
-
 - width compatibility;
 - type compatibility;
 - clock-domain constraints;
@@ -815,9 +754,7 @@ Verification should check properties such as:
 Separate:
 
 ### Structural validity
-
 "The IR is well formed."
-
 from:
 
 ### Semantic validity
@@ -832,14 +769,10 @@ from:
 
 Do not put target-specific restrictions into the generic dialect unless the restriction is intrinsic to the dialect.
 
----
-
 # 26. Canonicalization and Normal Forms
-
 Define canonical forms where they provide real value.
 
 Consider:
-
 - constant folding;
 - redundant connection elimination;
 - identity operation removal;
@@ -863,9 +796,7 @@ Especially protect:
 ---
 
 # 27. Lowering Contracts
-
 Every dialect should document its intended lowering relationships.
-
 For each important operation specify:
 
 ```text
@@ -879,7 +810,6 @@ Backend / HDL / netlist
 ```
 
 For every lowering, identify:
-
 - preserved semantics;
 - deliberately discarded information;
 - introduced operations;
@@ -888,15 +818,10 @@ For every lowering, identify:
 - legality preconditions.
 
 A lowering should not be described merely as "converts X to Y."
-
 Describe what semantic information is preserved.
 
----
-
 # 28. Do Not Prematurely Lower
-
 Do not introduce low-level details simply because they can be represented.
-
 Examples of premature lowering:
 
 - replacing a protocol with arbitrary muxes before protocol analysis;
@@ -907,10 +832,7 @@ Examples of premature lowering:
 
 A dialect should preserve useful abstraction until the information is no longer needed.
 
----
-
 # 29. Representation vs Implementation
-
 Always distinguish:
 
 ```text
@@ -924,7 +846,6 @@ How the hardware is implemented
 ```
 
 For example:
-
 - multiplication is behavior;
 - a Wallace tree is implementation;
 - a RAM abstraction is behavior;
@@ -937,9 +858,7 @@ Do not encode an implementation choice in a supposedly target-independent operat
 ---
 
 # 30. Cost Models
-
 If operations have meaningful hardware costs, document whether cost is:
-
 - intrinsic;
 - target-dependent;
 - estimated;
@@ -947,7 +866,6 @@ If operations have meaningful hardware costs, document whether cost is:
 - derived from parameters.
 
 Avoid embedding fixed area/timing numbers in a generic dialect.
-
 For example:
 
 ```text
@@ -958,12 +876,8 @@ is generally target-dependent.
 
 Prefer a representation capable of expressing the fact that latency is known, constrained, or estimated without pretending that one implementation is universal.
 
----
-
 # 31. Scheduling Semantics
-
 For scheduled hardware, distinguish:
-
 - latency;
 - initiation interval;
 - absolute cycle;
@@ -982,7 +896,6 @@ Document whether schedules are:
 
 A schedule annotation should not silently become part of functional semantics unless explicitly intended.
 
----
 
 # 32. Side Effects and Observability
 
@@ -1002,10 +915,8 @@ Use side-effect interfaces or equivalent mechanisms where the framework provides
 
 Do not mark a stateful operation as pure merely because it produces an SSA result.
 
----
 
 # 33. External Modules and Black Boxes
-
 External constructs should specify:
 
 - interface;
@@ -1026,12 +937,8 @@ A black box can still have:
 - known resource requirements;
 - known timing constraints.
 
----
-
 # 34. Verification and Formal Semantics
-
 When appropriate, document how dialect constructs map to:
-
 - simulation;
 - equivalence checking;
 - property checking;
@@ -1055,14 +962,10 @@ event-driven HDL semantics → event queue
 
 Do not claim equivalence between models without specifying the assumptions.
 
----
-
 # 35. Documentation Requirements
-
 Every dialect should have documentation at three levels.
 
 ## Level 1 — Dialect overview
-
 Explain:
 
 - purpose;
@@ -1077,7 +980,6 @@ Explain:
 - lowering path.
 
 ## Level 2 — Semantic reference
-
 For each operation/type/attribute document:
 
 - syntax;
@@ -1088,7 +990,6 @@ For each operation/type/attribute document:
 - interactions with other constructs.
 
 ## Level 3 — Engineering rationale
-
 Explain difficult design decisions:
 
 - why a construct exists;
@@ -1099,12 +1000,9 @@ Explain difficult design decisions:
 - known limitations;
 - alternatives considered.
 
-Do not put all rationale into terse operation descriptions.
-
----
+Dialect rationale does not have to be terse; it should be clear and concise.
 
 # 36. Recommended Dialect Documentation Structure
-
 Use this structure for the main dialect document:
 
 ```text
@@ -1160,10 +1058,7 @@ Use this structure for the main dialect document:
 
 Not every section is mandatory, but omissions should be deliberate.
 
----
-
 # 37. Operation Documentation Template
-
 Every important operation should follow a consistent template:
 
 ```text
@@ -1180,7 +1075,6 @@ What does the operation mean?
 ### Operands
 
 For every operand:
-
 - semantic role;
 - type;
 - constraints;
@@ -1190,7 +1084,6 @@ For every operand:
 ### Results
 
 For every result:
-
 - semantic role;
 - type;
 - latency;
@@ -1239,8 +1132,6 @@ Provide a minimal valid example.
 Provide examples that look plausible but are illegal or semantically different.
 ```
 
----
-
 # 38. Type Documentation Template
 
 ```text
@@ -1285,8 +1176,6 @@ Does it represent:
 What lower-level representation preserves its meaning?
 ```
 
----
-
 # 39. Attribute Documentation Template
 
 ```text
@@ -1304,14 +1193,9 @@ What lower-level representation preserves its meaning?
 
 Always state whether the attribute changes semantics or only affects implementation.
 
----
-
 # 40. Examples Are Part of the Specification
-
 Every non-trivial construct should have at least one valid example.
-
 For complex semantics also provide:
-
 - minimal example;
 - realistic example;
 - interaction example;
@@ -1323,8 +1207,6 @@ Examples should demonstrate semantics rather than only syntax.
 A good example answers:
 
 > "Why would an IR designer need this construct?"
-
----
 
 # 41. Common Pitfalls
 
@@ -1340,32 +1222,23 @@ Begin with:
 
 Different HDLs can express the same hardware semantics with very different syntax.
 
----
-
 ## 41.2 Building a Verilog AST
 
 An IR is not necessarily an AST.
-
 An AST preserves source-language structure.
-
 An IR should preserve information needed for:
-
 - analysis;
 - optimization;
 - transformation;
 - lowering;
 - verification.
-
 Avoid reproducing every syntactic distinction from the source HDL.
-
----
 
 ## 41.3 Encoding Everything as SSA
 
 SSA is powerful, but not every hardware concept is simply a value.
 
 Avoid pretending that:
-
 - registers;
 - wires;
 - clocks;
@@ -1373,17 +1246,12 @@ Avoid pretending that:
 - channels;
 - events;
 - module instances
-
 are interchangeable with ordinary SSA values.
-
----
 
 ## 41.4 Overusing Attributes
 
 Attributes are not a substitute for semantic structure.
-
 If a concept:
-
 - participates in dataflow;
 - has identity;
 - has operands/results;
@@ -1393,22 +1261,16 @@ If a concept:
 
 it may deserve an operation or type rather than an opaque attribute.
 
----
-
 ## 41.5 Under-specifying Width
 
 Never assume width from context when width affects semantics.
-
 Document:
-
 - source widths;
 - result width;
 - extension;
 - truncation;
 - overflow;
 - signedness.
-
----
 
 ## 41.6 Confusing Latency with Delay
 
@@ -1421,18 +1283,12 @@ latency = 4 cycles
 ```
 
 while each combinational stage has a separate timing constraint.
-
 Do not use one concept to represent the other.
 
----
 
 ## 41.7 Hiding Clock Domains
-
 A design may be logically connected but temporally unsafe.
-
 Do not let ordinary type compatibility imply clock-domain compatibility unless that is genuinely guaranteed.
-
----
 
 ## 41.8 Ignoring Reset Priority
 
@@ -1457,23 +1313,14 @@ if enable:
 
 The dialect must make such differences explicit.
 
----
-
 ## 41.9 Leaving Memory Collision Semantics Undefined
-
 Read/write behavior during the same cycle must be defined or explicitly marked undefined.
-
----
 
 ## 41.10 Treating Names as Identity
 
 Names can be regenerated.
-
 Use symbol/reference mechanisms for semantic identity.
-
 Names should generally be hints unless explicitly specified otherwise.
-
----
 
 ## 41.11 Target-Specific Semantics in Generic Dialects
 
@@ -1486,24 +1333,16 @@ Avoid encoding:
 
 in a target-independent abstraction unless the dialect's purpose is target-specific.
 
----
-
 ## 41.12 Mixing Simulation and Synthesis Semantics
 
 A simulation construct may have no direct synthesis equivalent.
-
 A synthesis-oriented construct may have no meaningful event-level interpretation.
-
 Document which semantic universe the dialect belongs to.
-
----
 
 ## 41.13 Assuming Structural Equality Means Behavioral Equality
 
 Two circuits can have different structure but equivalent behavior.
-
 Conversely, structurally similar circuits can have different:
-
 - timing;
 - state;
 - reset;
@@ -1512,23 +1351,15 @@ Conversely, structurally similar circuits can have different:
 
 Do not use structural equality as a semantic equivalence criterion.
 
----
-
 ## 41.14 Optimizing Across Unknown Semantics
 
 An optimization is only valid under the dialect's semantic model.
-
 Examples involving X/Z, multiple drivers, asynchronous behavior, or event ordering require particular care.
-
----
 
 ## 41.15 Making Lowering Irreversible Too Early
 
 Once information is lowered away, later passes cannot recover it.
-
 Keep high-level information until all transformations that depend on it have run.
-
----
 
 ## 41.16 Using One Giant Hardware Dialect
 
@@ -1543,17 +1374,13 @@ A single dialect containing:
 - target-specific primitives
 
 can become difficult to reason about.
-
 Use dialect boundaries when they correspond to meaningful semantic boundaries.
-
----
 
 ## 41.17 Excessive Fragmentation
 
 The opposite problem also occurs.
 
 Do not create a new dialect merely because a small set of operations exists.
-
 Create a boundary when it provides:
 
 - semantic isolation;
@@ -1561,8 +1388,6 @@ Create a boundary when it provides:
 - independent transformations;
 - meaningful ownership;
 - interoperability benefits.
-
----
 
 # 42. Review Checklist
 
@@ -1625,8 +1450,6 @@ Before accepting a new hardware dialect:
 - [ ] Lowering examples exist.
 - [ ] Known limitations are documented.
 
----
-
 # 43. Recommended Dialect Architecture
 
 A hardware compiler should generally distinguish semantic layers rather than forcing one dialect to represent everything.
@@ -1670,8 +1493,6 @@ This is an architectural pattern, not a mandatory pipeline.
 
 The correct decomposition depends on the compiler's goals.
 
----
-
 # 44. Relationship to MLIR
 
 When implemented in MLIR, use MLIR's native mechanisms deliberately:
@@ -1692,12 +1513,10 @@ Do not recreate these mechanisms inside the dialect without a strong reason.
 
 MLIR's dialect documentation recommends declarative definitions and generated documentation, while interfaces exist specifically to allow analyses and transformations to work across dialect boundaries without hard-coding individual operation types.
 
----
 
 # 45. Relationship to CIRCT
 
 CIRCT provides useful reference designs for hardware IR decomposition.
-
 Relevant examples include:
 
 - `hw` — generic hardware structure and hierarchy;
@@ -1721,7 +1540,6 @@ The CIRCT `hw` dialect is deliberately generic and serves as a substrate for hig
 ---
 
 # 46. Dialect Documentation Should Explain the Semantic Graph
-
 The most useful documentation is not merely:
 
 ```text
@@ -1749,10 +1567,7 @@ Target concept
 ```
 
 For every important construct, document where it comes from and where it goes.
-
 This allows developers to understand the role of the construct in the compiler rather than learning isolated operations.
-
----
 
 # 47. Required Documentation for a New Hardware Dialect
 
@@ -1785,7 +1600,6 @@ The minimum complete documentation should still cover:
 12. limitations;
 13. rationale.
 
----
 
 # 48. Final Engineering Rule
 
@@ -1818,4 +1632,6 @@ simulate / verify
 synthesize / emit
 ```
 
-A good hardware dialect makes illegal states difficult to represent, important semantic distinctions explicit, and generic compiler transformations possible without requiring every pass to understand every operation individually.
+A good hardware dialect makes illegal states difficult to represent, important semantic 
+distinctions explicit, and generic compiler transformations possible without requiring every 
+pass to understand every operation individually.
