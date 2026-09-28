@@ -4,7 +4,7 @@ Hardware dialect ecosystem retaining parity with LLVM CIRCT / MLIR IR.
 
 ## Dialect Ecosystem Overview
 
-A list of currently supported dialects and their parity with the upstream CIRCT / MLIR ecosystem.
+A list of currently supported dialects and their equivalent in the upstream CIRCT / MLIR ecosystem.
 
 | Dialect | Abstraction Level | Semantics & Contract | Parity Target |
 | :--- | :--- | :--- | :--- |
