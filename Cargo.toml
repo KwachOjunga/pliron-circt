@@ -8,7 +8,7 @@ repository = "https://github.com/KwachOjunga/pliron-circt"
 categories = ["compilers"]
 keywords = ["pliron", "hardware", "circt", "compiler", "rtl"]
 authors = ["Reginald Ojunga"]
-
+description = "An MLIR-based compiler infrastructure spanning multiple abstraction levels of hardware representation, transformation, and RTL generation"
 [features]
 default = ["sv", "hw", "comb", "seq"]
 sv = []
@@ -17,12 +17,12 @@ comb = []
 seq = []
 
 [dependencies]
-pliron =  {git = "https://github.com/pliron-org/pliron", rev = "e66025a"}
+pliron =  {git = "https://github.com/pliron-org/pliron", rev = "e66025a", version = "0.17.0"}
 thiserror = "2"
 log = { version = "0" }
 rustc-hash = "2"
 awint = "0"
-sv-parser = { git = "https://github.com/KwachOjunga/sv-parser" }
+sv-parser = { git = "https://github.com/KwachOjunga/sv-parser", version = "0.13.5" }
 
 [dev-dependencies]
 expect-test = "1"
