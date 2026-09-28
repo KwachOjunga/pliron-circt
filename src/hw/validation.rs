@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Module-level hardware legality checks that cannot be expressed by one op.
 
 use std::collections::HashSet;

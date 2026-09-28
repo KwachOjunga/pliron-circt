@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! SystemVerilog emission dialect (`sv`) for [pliron].
 //!
 //! The dialect preserves target-facing SystemVerilog intent after structural,

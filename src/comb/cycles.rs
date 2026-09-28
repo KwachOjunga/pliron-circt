@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Combinational cycle verification for `hw.module` graph regions.
 //!
 //! Enforces that no closed combinational dependency loops exist in a hardware module.

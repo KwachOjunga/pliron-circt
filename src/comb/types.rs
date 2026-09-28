@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Type validation and metadata utilities for the `comb` dialect.
 
 use pliron::{

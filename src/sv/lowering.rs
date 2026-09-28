@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Typed lowering helpers from semantic hardware dialects into `sv` intent.
 
 use pliron::{

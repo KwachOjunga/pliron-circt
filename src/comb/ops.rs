@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Operations defined in the `comb` (Combinational Logic) dialect.
 //!
 //! Every operation is pure, side-effect-free, zero-latency combinational logic.

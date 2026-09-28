@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Hardware types defined in the `hw` dialect.
 //!
 //! Provides parity with CIRCT / MLIR `hw` dialect type systems:

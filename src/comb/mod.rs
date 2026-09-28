@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Combinational logic dialect (`comb`) for [pliron].
 //!
 //! Provides zero-latency arithmetic, logical, comparison, and bit-level operations.
