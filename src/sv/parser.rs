@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! SystemVerilog parser targeting the `sv`, `hw`, and `seq` dialects.
 //!
 //! Parses synthesizable SystemVerilog module definitions into verified Pliron hardware IR

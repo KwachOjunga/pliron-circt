@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Canonicalization and simplification rewrite rules for the `comb` dialect.
 //!
 //! Implements algebraic simplifications and canonical forms:

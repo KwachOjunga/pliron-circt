@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Sequential hardware dialect (`seq`) for [pliron].
 //!
 //! The dialect introduces explicit clock-domain values and state boundaries.

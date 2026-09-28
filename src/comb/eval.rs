@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Executable bit-level semantics, evaluation, and constant folding for `comb` operations.
 //!
 //! Provides mathematically precise evaluation matching the hardware specification:
