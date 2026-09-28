@@ -16,6 +16,12 @@ A list of currently supported dialects and their parity with the upstream CIRCT 
 ---
 
 Use `hw` for structural identity and hierarchy, `comb` for pure zero-cycle
-functions, and `seq` for clocked state. This division keeps enum encodings,
-arithmetic signedness, and reset/clock priority available to verification and
-lowering. Lower structurally only after these semantic analyses have run.
+functions, and `seq` for clocked state.
+This division keeps enum encodings, arithmetic signedness, and reset/clock priority 
+available to verification and lowering.
+Lower structurally only after these semantic analyses have run.
+
+# References
+
+[CIRCT website](https://circt.llvm.org)
+[CIRCT repository](https://github.com/llvm/circt)
