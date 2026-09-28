@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Structural hardware dialect (`hw`) for [pliron].
 //!
 //! Models modules, hierarchy, ports, and hardware types.

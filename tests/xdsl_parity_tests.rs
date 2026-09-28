@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Tests ported and adapted from xDSL hardware dialects (`test_hw.py`, `comb_ops.mlir`, `seq_ops.mlir`).
 //!
 //! These tests verify semantic contracts established by xDSL and CIRCT parity targets:

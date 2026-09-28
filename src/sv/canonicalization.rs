@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) The pliron contributors
-
 //! Semantics-preserving canonicalization patterns for `sv` operations.
 
 use pliron::{
