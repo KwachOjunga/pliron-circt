@@ -11,7 +11,7 @@ pub mod canonicalization;
 pub mod lowering;
 pub mod ops;
 pub mod types;
-
+pub(crate) mod utils;
 use pliron::context::Context;
 
 /// Register the `fsm` dialect, its types, and its operations in [Context].
