@@ -158,13 +158,13 @@ impl Verify for MachineOp {
         if arg_names_len.is_some() != arg_attrs_len.is_some() {
             return verify_err!(op.loc(), "arg_attrs must be consistent with arg_names");
         }
-        if let (Some(l1), Some(l2)) = (arg_names_len, arg_attrs_len) {
-            if l1 != l2 {
-                return verify_err!(
-                    op.loc(),
-                    "The number of arg_attrs and arg_names should be the same"
-                );
-            }
+        if let (Some(l1), Some(l2)) = (arg_names_len, arg_attrs_len)
+            && l1 != l2
+        {
+            return verify_err!(
+                op.loc(),
+                "The number of arg_attrs and arg_names should be the same"
+            );
         }
 
         // 7. Check res_names and res_attrs consistency
@@ -173,13 +173,13 @@ impl Verify for MachineOp {
         if res_names_len.is_some() != res_attrs_len.is_some() {
             return verify_err!(op.loc(), "res_attrs must be consistent with res_names");
         }
-        if let (Some(l1), Some(l2)) = (res_names_len, res_attrs_len) {
-            if l1 != l2 {
-                return verify_err!(
-                    op.loc(),
-                    "The number of res_attrs and res_names should be the same"
-                );
-            }
+        if let (Some(l1), Some(l2)) = (res_names_len, res_attrs_len)
+            && l1 != l2
+        {
+            return verify_err!(
+                op.loc(),
+                "The number of res_attrs and res_names should be the same"
+            );
         }
 
         // 8. If machine has results, every state must have an output region with OutputOp
@@ -287,11 +287,12 @@ impl MachineOp {
         ctx: &Context,
     ) -> Option<(Vec<TypeHandle>, Vec<TypeHandle>)> {
         let op = self.get_operation().deref(ctx);
-        if let Ok(key) = Identifier::try_from("function_type") {
-            if let Some(t_attr) = op.attributes.get::<TypeAttr>(&key) {
-                return get_function_signature(ctx, t_attr.get_type(ctx));
-            }
+        if let Ok(key) = Identifier::try_from("function_type")
+            && let Some(t_attr) = op.attributes.get::<TypeAttr>(&key)
+        {
+            return get_function_signature(ctx, t_attr.get_type(ctx));
         }
+
         None
     }
 
@@ -440,13 +441,14 @@ impl Verify for StateOp {
         }
 
         // 5. If parent machine has results, output region must not be empty and must terminate with OutputOp
-        if let Some(machine) = parent_machine {
-            if !machine.result_types(ctx).is_empty() && self.output_op(ctx).is_none() {
-                return verify_err!(
-                    op.loc(),
-                    "State must have a non-empty output region when the machine has results"
-                );
-            }
+        if let Some(machine) = parent_machine
+            && !machine.result_types(ctx).is_empty()
+            && self.output_op(ctx).is_none()
+        {
+            return verify_err!(
+                op.loc(),
+                "State must have a non-empty output region when the machine has results"
+            );
         }
 
         Ok(())
@@ -564,35 +566,35 @@ impl Verify for OutputOp {
         };
 
         // Output must NOT be in the transitions region
-        if let Some(p_reg) = op.get_parent_region(ctx) {
-            if p_reg == parent_state.transitions_region(ctx) {
-                return verify_err!(op.loc(), "Transition regions should not output any value");
-            }
+        if let Some(p_reg) = op.get_parent_region(ctx)
+            && p_reg == parent_state.transitions_region(ctx)
+        {
+            return verify_err!(op.loc(), "Transition regions should not output any value");
         }
 
         // Consistency with enclosing machine result types
         let state_op = parent_state.get_operation().deref(ctx);
-        if let Some(machine_ptr) = state_op.get_parent_op(ctx) {
-            if let Some(machine) = Operation::get_op::<MachineOp>(machine_ptr, ctx) {
-                let expected_types = machine.result_types(ctx);
-                let num_operands = op.get_num_operands();
+        if let Some(machine_ptr) = state_op.get_parent_op(ctx)
+            && let Some(machine) = Operation::get_op::<MachineOp>(machine_ptr, ctx)
+        {
+            let expected_types = machine.result_types(ctx);
+            let num_operands = op.get_num_operands();
 
-                if num_operands != expected_types.len() {
+            if num_operands != expected_types.len() {
+                return verify_err!(
+                    op.loc(),
+                    "OutputOp output type must be consistent with the machine \"{}\"",
+                    machine.machine_name(ctx)
+                );
+            }
+
+            for i in 0..num_operands {
+                if op.get_operand(i).get_type(ctx) != expected_types[i] {
                     return verify_err!(
                         op.loc(),
                         "OutputOp output type must be consistent with the machine \"{}\"",
                         machine.machine_name(ctx)
                     );
-                }
-
-                for i in 0..num_operands {
-                    if op.get_operand(i).get_type(ctx) != expected_types[i] {
-                        return verify_err!(
-                            op.loc(),
-                            "OutputOp output type must be consistent with the machine \"{}\"",
-                            machine.machine_name(ctx)
-                        );
-                    }
                 }
             }
         }
@@ -664,13 +666,13 @@ impl Verify for TransitionOp {
             }
         };
 
-        if let Some(p_reg) = op.get_parent_region(ctx) {
-            if p_reg != parent_state.transitions_region(ctx) {
-                return verify_err!(
-                    op.loc(),
-                    "Transition must be located in a transitions region"
-                );
-            }
+        if let Some(p_reg) = op.get_parent_region(ctx)
+            && p_reg != parent_state.transitions_region(ctx)
+        {
+            return verify_err!(
+                op.loc(),
+                "Transition must be located in a transitions region"
+            );
         }
 
         // 2. nextState attribute
@@ -681,12 +683,11 @@ impl Verify for TransitionOp {
 
         // 3. Target state exists in the machine
         let state_op = parent_state.get_operation().deref(ctx);
-        if let Some(machine_ptr) = state_op.get_parent_op(ctx) {
-            if let Some(machine) = Operation::get_op::<MachineOp>(machine_ptr, ctx) {
-                if machine.get_state(ctx, &next_state).is_none() {
-                    return verify_err!(op.loc(), "Can not find next state: '{}'", next_state);
-                }
-            }
+        if let Some(machine_ptr) = state_op.get_parent_op(ctx)
+            && let Some(machine) = Operation::get_op::<MachineOp>(machine_ptr, ctx)
+            && machine.get_state(ctx, &next_state).is_none()
+        {
+            return verify_err!(op.loc(), "Can not find next state: '{}'", next_state);
         }
 
         // 4. Guard region must terminate with ReturnOp
@@ -935,14 +936,14 @@ impl Verify for VariableOp {
             _ => return verify_err!(op.loc(), "fsm.variable requires a non-empty name"),
         };
 
-        if let Ok(key) = Identifier::try_from("initValue") {
-            if op.attributes.0.get(&key).is_none() {
-                return verify_err!(
-                    op.loc(),
-                    "fsm.variable '{}' requires an initValue attribute",
-                    name
-                );
-            }
+        if let Ok(key) = Identifier::try_from("initValue")
+            && op.attributes.0.get(&key).is_none()
+        {
+            return verify_err!(
+                op.loc(),
+                "fsm.variable '{}' requires an initValue attribute",
+                name
+            );
         }
 
         Ok(())

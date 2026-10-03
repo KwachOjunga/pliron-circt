@@ -65,10 +65,10 @@ pub fn find_machine(start_op: &Operation, ctx: &Context, target_name: &str) -> O
             let region = parent_ref.get_region(reg_idx);
             for block_ptr in region.deref(ctx).iter(ctx) {
                 for inner_op in block_ptr.deref(ctx).iter(ctx) {
-                    if let Some(machine) = Operation::get_op::<MachineOp>(inner_op, ctx) {
-                        if clean_symbol_ref(&machine.machine_name(ctx)) == target {
-                            return Some(machine);
-                        }
+                    if let Some(machine) = Operation::get_op::<MachineOp>(inner_op, ctx)
+                        && clean_symbol_ref(&machine.machine_name(ctx)) == target
+                    {
+                        return Some(machine);
                     }
                 }
             }
