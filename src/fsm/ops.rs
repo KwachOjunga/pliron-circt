@@ -264,8 +264,7 @@ impl MachineOp {
 
     /// Initial state name.
     pub fn initial_state(&self, ctx: &Context) -> String {
-        self.get_initial_state(ctx)
-            .unwrap_or_else(|| "".to_string())
+        self.get_initial_state(ctx).unwrap_or_default()
     }
 
     fn get_initial_state(&self, ctx: &Context) -> Option<String> {
@@ -595,6 +594,16 @@ impl Verify for OutputOp {
                         "OutputOp output type must be consistent with the machine \"{}\"",
                         machine.machine_name(ctx)
                     );
+                }
+
+                for (i, expected_type) in expected_types.iter().enumerate().take(num_operands) {
+                    if &op.get_operand(i).get_type(ctx) != expected_type {
+                        return verify_err!(
+                            op.loc(),
+                            "OutputOp output type must be consistent with the machine \"{}\"",
+                            machine.machine_name(ctx)
+                        );
+                    }
                 }
             }
         }
@@ -1250,8 +1259,8 @@ impl Verify for TriggerOp {
                     machine_name
                 );
             }
-            for i in 0..inputs_count {
-                if op.get_operand(i).get_type(ctx) != expected_inputs[i] {
+            for (i, expected_input) in expected_inputs.iter().enumerate().take(inputs_count) {
+                if &op.get_operand(i).get_type(ctx) != expected_input {
                     return verify_err!(
                         op.loc(),
                         "TriggerOp input types must be consistent with the machine \"{}\"",
@@ -1270,8 +1279,8 @@ impl Verify for TriggerOp {
                     machine_name
                 );
             }
-            for i in 0..num_results {
-                if op.get_result(i).get_type(ctx) != expected_results[i] {
+            for (i, expected_result) in expected_results.iter().enumerate().take(num_results) {
+                if &op.get_result(i).get_type(ctx) != expected_result {
                     return verify_err!(
                         op.loc(),
                         "TriggerOp output types must be consistent with the machine \"{}\"",
@@ -1373,8 +1382,8 @@ impl Verify for HWInstanceOp {
                     machine_name
                 );
             }
-            for i in 0..num_inputs {
-                if op.get_operand(i).get_type(ctx) != expected_inputs[i] {
+            for (i, expected_input) in expected_inputs.iter().enumerate().take(num_inputs) {
+                if &op.get_operand(i).get_type(ctx) != expected_input {
                     return verify_err!(
                         op.loc(),
                         "HWInstanceOp \"{}\" input type must be consistent with the machine \"{}\"",
@@ -1394,8 +1403,8 @@ impl Verify for HWInstanceOp {
                     machine_name
                 );
             }
-            for i in 0..num_results {
-                if op.get_result(i).get_type(ctx) != expected_results[i] {
+            for (i, expected_result) in expected_results.iter().enumerate().take(num_results) {
+                if &op.get_result(i).get_type(ctx) != expected_result {
                     return verify_err!(
                         op.loc(),
                         "HWInstanceOp \"{}\" output type must be consistent with the machine \"{}\"",
