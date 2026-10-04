@@ -10,24 +10,17 @@ use pliron::{
     utils::apint::{APInt, bw},
 };
 use pliron_circt::{
-    hw::{
-        ops::{ModuleOp, OutputOp},
-        validation::validate_module,
-    },
+    hw::{ModuleOp, OutputOp, validation::validate_module},
     register_all,
     seq::{
-        ops::{CompRegOp, FirRegOp, HLMemOp, HLMemReadOp, HLMemWriteOp},
-        types::{ClockType, MemoryType, ResetType},
+        ClockType, CompRegOp, FirRegOp, HLMemOp, HLMemReadOp, HLMemWriteOp, MemoryType, ResetType,
     },
     sv::{
+        AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, BinaryExprOp, BpaOp, CaseOp,
+        ConcatExprOp, ConstantExprOp, IndexExprOp, InstanceOp, LogicDeclOp, MemDeclOp, MemReadOp,
+        MemWriteOp, MuxExprOp, NbaOp, RegDeclOp, SliceExprOp, UnaryExprOp, WireDeclOp,
         canonicalization::eliminate_redundant_assign,
         lowering::{lower_compreg, lower_firreg, lower_module, lower_module_registers},
-        ops::{
-            AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, BinaryExprOp, BpaOp, CaseOp,
-            ConcatExprOp, ConstantExprOp, IndexExprOp, InstanceOp, LogicDeclOp, MemDeclOp,
-            MemReadOp, MemWriteOp, MuxExprOp, NbaOp, RegDeclOp, SliceExprOp, UnaryExprOp,
-            WireDeclOp,
-        },
         parser::parse_sv_module,
         printer::render_module,
     },

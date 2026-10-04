@@ -1281,7 +1281,7 @@ impl CaseOp {
 }
 
 /// Register all `sv` operations in [Context].
-pub fn register(ctx: &mut Context) {
+pub(crate) fn register(ctx: &mut Context) {
     LogicDeclOp::register(ctx);
     WireDeclOp::register(ctx);
     RegDeclOp::register(ctx);

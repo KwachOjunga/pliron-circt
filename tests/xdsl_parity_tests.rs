@@ -21,16 +21,10 @@ use pliron::{
     utils::apint::APInt,
 };
 use pliron_circt::{
-    comb::ops::{AddOp, AndOp, ExtractOp, ICmpOp, ICmpPredicate},
-    hw::{
-        ops::{ArrayCreateOp, ArrayGetOp, ConstantOp, InstanceOp, ModuleOp, OutputOp},
-        types::ArrayType,
-    },
+    comb::{AddOp, AndOp, ExtractOp, ICmpOp, ICmpPredicate},
+    hw::{ArrayCreateOp, ArrayGetOp, ArrayType, ConstantOp, InstanceOp, ModuleOp, OutputOp},
     register_all,
-    seq::{
-        ops::{ClockGateOp, CompRegOp, FirRegOp},
-        types::{ClockType, ResetType},
-    },
+    seq::{ClockGateOp, ClockType, CompRegOp, FirRegOp, ResetType},
 };
 
 fn int_attr(ctx: &mut Context, width: u32, val: u64) -> IntegerAttr {
