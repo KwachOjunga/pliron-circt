@@ -587,23 +587,13 @@ impl Verify for OutputOp {
                 );
             }
 
-            for i in 0..num_operands {
-                if op.get_operand(i).get_type(ctx) != expected_types[i] {
+            for (i, expected_type) in expected_types.iter().enumerate().take(num_operands) {
+                if &op.get_operand(i).get_type(ctx) != expected_type {
                     return verify_err!(
                         op.loc(),
                         "OutputOp output type must be consistent with the machine \"{}\"",
                         machine.machine_name(ctx)
                     );
-                }
-
-                for (i, expected_type) in expected_types.iter().enumerate().take(num_operands) {
-                    if &op.get_operand(i).get_type(ctx) != expected_type {
-                        return verify_err!(
-                            op.loc(),
-                            "OutputOp output type must be consistent with the machine \"{}\"",
-                            machine.machine_name(ctx)
-                        );
-                    }
                 }
             }
         }
