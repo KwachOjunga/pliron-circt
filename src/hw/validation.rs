@@ -11,7 +11,7 @@ use pliron::{
 use crate::{
     hw::ops::{InstanceOp, ModuleOp},
     seq::types::{ClockType, MemoryType, ResetType},
-    sv::ops::{
+    sv::{
         AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, InstanceOp as SvInstanceOp,
         LogicDeclOp, MemDeclOp, MemReadOp, MemWriteOp,
     },

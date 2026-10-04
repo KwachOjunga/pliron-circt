@@ -5,8 +5,8 @@
 mod canonicalization;
 mod cycles;
 mod eval;
-pub mod ops;
-pub mod types;
+pub(crate) mod ops;
+pub(crate) mod types;
 mod utils;
 
 // Re-exports

@@ -15,16 +15,11 @@ use pliron::{
 };
 use pliron_circt::{
     hw::{
-        ops::{
-            ArrayCreateOp, ArrayGetOp, ArrayInjectOp, BitcastOp, ConcatOp, ConstantOp,
-            ExternModuleOp, HierPathOp, InstanceOp, ModuleOp, OutputOp, ParamDeclOp, ParamValueOp,
-            SliceOp, StructCreateOp, StructExplodeOp, StructExtractOp, StructInjectOp,
-            UnionCreateOp, UnionExtractOp, WireOp,
-        },
-        types::{
-            ArrayType, EnumType, EnumVariant, InoutType, IntType, StructField, StructType,
-            TypeAliasType, UnionType,
-        },
+        ArrayCreateOp, ArrayGetOp, ArrayInjectOp, ArrayType, BitcastOp, ConcatOp, ConstantOp,
+        EnumType, EnumVariant, ExternModuleOp, HierPathOp, InoutType, InstanceOp, IntType,
+        ModuleOp, OutputOp, ParamDeclOp, ParamValueOp, SliceOp, StructCreateOp, StructExplodeOp,
+        StructExtractOp, StructField, StructInjectOp, StructType, TypeAliasType, UnionCreateOp,
+        UnionExtractOp, UnionType, WireOp,
     },
     register_all,
 };
@@ -594,7 +589,7 @@ fn test_hw_module_type_and_printed_ir() {
     let i8: TypeHandle = IntegerType::get(&ctx, 8, Signedness::Signless).into();
     let input: Identifier = "input".try_into().unwrap();
     let output: Identifier = "output".try_into().unwrap();
-    let signature = pliron_circt::hw::types::ModuleType::get(
+    let signature = pliron_circt::hw::ModuleType::get(
         &ctx,
         vec![StructField::new(input, i8)],
         vec![StructField::new(output, i8)],

@@ -5,11 +5,11 @@ use pliron::{
     r#type::{TypeHandle, Typed},
 };
 use pliron_circt::{
-    hw::ops::{ModuleOp, OutputOp},
+    hw::{ModuleOp, OutputOp},
     register_all,
     seq::{
-        ops::{ClockGateOp, CompRegOp, FirRegOp, HLMemOp, HLMemReadOp, HLMemWriteOp},
-        types::{ClockType, MemoryType, ResetType},
+        ClockGateOp, ClockType, CompRegOp, FirRegOp, HLMemOp, HLMemReadOp, HLMemWriteOp,
+        MemoryType, ResetType,
     },
 };
 

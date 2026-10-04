@@ -4,8 +4,8 @@
 //! Combinational behavior remains in `comb`; `seq` records where values are
 //! sampled or where clock identity is transformed.
 
-pub mod ops;
-pub mod types;
+pub(crate) mod ops;
+pub(crate) mod types;
 
 pub use ops::*;
 use pliron::context::Context;
