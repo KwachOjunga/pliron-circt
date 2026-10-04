@@ -10,6 +10,7 @@ pub mod ops;
 pub mod parser;
 pub mod printer;
 
+pub use ops::*;
 use pliron::context::Context;
 
 /// Register the `sv` dialect and its operations in [Context].

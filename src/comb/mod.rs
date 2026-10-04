@@ -9,6 +9,10 @@ pub mod ops;
 pub mod types;
 mod utils;
 
+// Re-exports
+pub use ops::*;
+pub use types::*;
+
 use pliron::context::Context;
 
 /// Register the `comb` dialect and its ops in [Context].
