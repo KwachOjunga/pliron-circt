@@ -7,7 +7,9 @@
 pub mod ops;
 pub mod types;
 
+pub use ops::*;
 use pliron::context::Context;
+pub use types::*;
 
 /// Register the `seq` dialect, its types, and its operations in [Context].
 pub fn register(ctx: &mut Context) {
