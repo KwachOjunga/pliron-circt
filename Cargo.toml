@@ -1,3 +1,7 @@
+[workspace]
+resolver = "2"
+members = ["v-parser"]
+
 [package]
 name = "pliron-circt"
 version = "0.1.1"
