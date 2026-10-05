@@ -9,6 +9,7 @@ categories = ["compilers"]
 keywords = ["pliron", "hardware", "circt", "compiler", "rtl"]
 authors = ["Reginald Ojunga"]
 description = "An MLIR-based compiler infrastructure spanning multiple abstraction levels of hardware representation, transformation, and RTL generation"
+
 [features]
 default = ["sv", "hw", "comb", "seq", "fsm"]
 sv = []
