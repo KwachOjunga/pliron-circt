@@ -24,9 +24,9 @@ use pliron_circt::{
         },
         types::{InstanceType, InstanceTypeType, is_instance_type},
     },
-    hw::ops::ModuleOp,
+    hw::ModuleOp,
     register_all,
-    seq::types::ClockType,
+    seq::ClockType,
 };
 
 fn int_attr(ctx: &mut Context, width: u32, val: u64) -> IntegerAttr {
