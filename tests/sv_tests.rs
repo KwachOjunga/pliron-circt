@@ -69,7 +69,29 @@ fn test_sv_emission_operations_verify() {
 }
 
 #[test]
-// Proves that SV emission rejects a non-clock event control before lowering.
+// Proves that SV emission rejects a non-clock event when used in sensitivity list as clock.
+//
+// ```systemverilog
+// module sv_invalid_clock #(
+//     parameter WIDTH = 8
+// ) (
+//     input  logic [WIDTH-1:0] invalid_clock,
+//     input  logic             reset,
+//     input  logic [WIDTH-1:0] input_data,
+//     input  logic [WIDTH-1:0] reset_value
+// );
+//
+//     logic [WIDTH-1:0] state;
+//
+//     always_ff @(posedge invalid_clock) begin // you cannot use a non-clock type as clock
+//         if (reset)
+//             state <= reset_value;
+//         else
+//             state <= input_data;
+//     end
+//
+// endmodule
+// ```
 fn test_sv_rejects_non_clock_always_ff() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -103,6 +125,28 @@ fn test_sv_rejects_non_clock_always_ff() {
 
 #[test]
 // Proves that emission metadata rejects an unsupported reset polarity.
+//
+// ```systemverilog
+// module sv_invalid_polarity #(
+//     parameter width = 8
+// )(
+//     input logic clock,
+//     input logic reset,
+//     input logic [width-1:0] input_data,
+//     input logic [width-1:0] reset_value
+// );
+//
+//     always_ff @(posedge clock) begin
+//         if (reset)
+//             state <= reset_value;
+//         else
+//             state <= input_data;
+//     end
+//
+// endmodule
+// ```
+//
+//  - active_middle is unsupported
 fn test_sv_rejects_unknown_reset_polarity() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
