@@ -598,7 +598,7 @@ dependencies = [
 
 [[package]]
 name = "pliron-circt"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "awint",
  "env_logger",
@@ -606,7 +606,6 @@ dependencies = [
  "log",
  "pliron",
  "rustc-hash",
- "sv-parser",
  "thiserror",
 ]
 
