@@ -7,7 +7,6 @@
 pub mod canonicalization;
 pub mod lowering;
 pub(crate) mod ops;
-pub mod parser;
 pub mod printer;
 
 pub use ops::*;
