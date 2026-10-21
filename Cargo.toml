@@ -22,13 +22,21 @@ comb = []
 seq = []
 
 [dependencies]
+pliron.workspace = true
+thiserror.workspace = true
+log.workspace = true
+rustc-hash.workspace = true
+awint.workspace = true
+sv-parser.workspace = true # OMIT after parser migration
+
+[dev-dependencies]
+expect-test = "1"
+env_logger = "0"
+
+[workspace.dependencies]
 pliron =   "0.18.0"
 thiserror = "2"
 log = { version = "0" }
 rustc-hash = "2"
 awint = "0"
-sv-parser =  "0.13.5"
-
-[dev-dependencies]
-expect-test = "1"
-env_logger = "0"
+sv-parser =  "0.13.5" # OMIT after parser migration
