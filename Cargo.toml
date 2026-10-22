@@ -1,6 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["v-parser"]
+
 [package]
 name = "pliron-circt"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 license = "Apache-2.0"
 readme = "README.md"
@@ -9,6 +13,7 @@ categories = ["compilers"]
 keywords = ["pliron", "hardware", "circt", "compiler", "rtl"]
 authors = ["Reginald Ojunga"]
 description = "An MLIR-based compiler infrastructure spanning multiple abstraction levels of hardware representation, transformation, and RTL generation"
+
 [features]
 default = ["sv", "hw", "comb", "seq"]
 sv = []
@@ -17,13 +22,20 @@ comb = []
 seq = []
 
 [dependencies]
+pliron.workspace = true
+thiserror.workspace = true
+log.workspace = true
+rustc-hash.workspace = true
+awint.workspace = true
+
+
+[dev-dependencies]
+expect-test = "1"
+env_logger = "0"
+
+[workspace.dependencies]
 pliron =   "0.18.0"
 thiserror = "2"
 log = { version = "0" }
 rustc-hash = "2"
 awint = "0"
-sv-parser =  "0.13.5"
-
-[dev-dependencies]
-expect-test = "1"
-env_logger = "0"

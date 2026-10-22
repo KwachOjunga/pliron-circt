@@ -1,0 +1,14 @@
+[package]
+name = "v-parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = "*"
+pliron-circt = { path = "../" }
+pliron.workspace =   true
+thiserror.workspace = true
+log.workspace = true
+rustc-hash.workspace = true
+awint.workspace = true
+sv-parser =  "0.13.5"

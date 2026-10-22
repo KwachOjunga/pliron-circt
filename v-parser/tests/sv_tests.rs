@@ -16,12 +16,30 @@ use pliron_circt::{
         ClockType, CompRegOp, FirRegOp, HLMemOp, HLMemReadOp, HLMemWriteOp, MemoryType, ResetType,
     },
     sv::{
-        AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, BinaryExprOp, BpaOp, CaseOp,
-        ConcatExprOp, ConstantExprOp, IndexExprOp, InstanceOp, LogicDeclOp, MemDeclOp, MemReadOp,
-        MemWriteOp, MuxExprOp, NbaOp, RegDeclOp, SliceExprOp, UnaryExprOp, WireDeclOp,
+        AlwaysCombOp,
+        AlwaysFfNoResetOp,
+        AlwaysFfOp,
+        AssignOp,
+        BinaryExprOp,
+        BpaOp,
+        CaseOp,
+        ConcatExprOp,
+        ConstantExprOp,
+        IndexExprOp,
+        InstanceOp,
+        LogicDeclOp,
+        MemDeclOp,
+        MemReadOp,
+        MemWriteOp,
+        MuxExprOp,
+        NbaOp,
+        RegDeclOp,
+        SliceExprOp,
+        UnaryExprOp,
+        WireDeclOp,
         canonicalization::eliminate_redundant_assign,
         lowering::{lower_compreg, lower_firreg, lower_module, lower_module_registers},
-        parser::parse_sv_module,
+        //    parser::parse_sv_module,
         printer::render_module,
     },
 };
@@ -69,7 +87,29 @@ fn test_sv_emission_operations_verify() {
 }
 
 #[test]
-// Proves that SV emission rejects a non-clock event control before lowering.
+// Proves that SV emission rejects a non-clock event when used in sensitivity list as clock.
+//
+// ```systemverilog
+// module sv_invalid_clock #(
+//     parameter WIDTH = 8
+// ) (
+//     input  logic [WIDTH-1:0] invalid_clock,
+//     input  logic             reset,
+//     input  logic [WIDTH-1:0] input_data,
+//     input  logic [WIDTH-1:0] reset_value
+// );
+//
+//     logic [WIDTH-1:0] state;
+//
+//     always_ff @(posedge invalid_clock) begin // you cannot use a non-clock type as clock
+//         if (reset)
+//             state <= reset_value;
+//         else
+//             state <= input_data;
+//     end
+//
+// endmodule
+// ```
 fn test_sv_rejects_non_clock_always_ff() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -103,6 +143,28 @@ fn test_sv_rejects_non_clock_always_ff() {
 
 #[test]
 // Proves that emission metadata rejects an unsupported reset polarity.
+//
+// ```systemverilog
+// module sv_invalid_polarity #(
+//     parameter width = 8
+// )(
+//     input logic clock,
+//     input logic reset,
+//     input logic [width-1:0] input_data,
+//     input logic [width-1:0] reset_value
+// );
+//
+//     always_ff @(posedge clock) begin
+//         if (reset)
+//             state <= reset_value;
+//         else
+//             state <= input_data;
+//     end
+//
+// endmodule
+// ```
+//
+//  - active_middle is unsupported
 fn test_sv_rejects_unknown_reset_polarity() {
     let mut ctx = Context::new();
     register_all(&mut ctx);
@@ -531,7 +593,8 @@ module alu_block (
 endmodule
 "#;
 
-    let module = parse_sv_module(&mut ctx, sv_code).expect("SV combinational module should parse");
+    let module =
+        v_parser::parse_sv_module(&mut ctx, sv_code).expect("SV combinational module should parse");
     verify_op(&module, &ctx).expect("parsed SV module should verify");
 
     let rendered = render_module(&ctx, &module).expect("parsed module should render");
@@ -559,7 +622,8 @@ module d_flip_flop (
 endmodule
 "#;
 
-    let module = parse_sv_module(&mut ctx, sv_code).expect("SV sequential module should parse");
+    let module =
+        v_parser::parse_sv_module(&mut ctx, sv_code).expect("SV sequential module should parse");
     verify_op(&module, &ctx).expect("parsed SV module should verify");
 
     let rendered = render_module(&ctx, &module).expect("parsed module should render");

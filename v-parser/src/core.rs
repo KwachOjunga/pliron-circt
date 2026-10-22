@@ -1,40 +1,4 @@
-//! SystemVerilog parser targeting the `sv`, `hw`, and `seq` dialects.
-//!
-//! Parses synthesizable SystemVerilog module definitions into verified Pliron hardware IR
-//! using the IEEE 1800-2017 compliant `sv-parser` library.
-
-use awint::bw;
-use pliron::{
-    builtin::{
-        attributes::IntegerAttr,
-        types::{IntegerType, Signedness},
-    },
-    context::{Context, Ptr},
-    identifier::Identifier,
-    location::Location,
-    op::Op,
-    result::Result,
-    r#type::{TypeHandle, Typed},
-    utils::apint::APInt,
-    value::Value,
-    verify_err, verify_error,
-};
-use rustc_hash::FxHashMap;
-use std::{
-    string::{String, ToString},
-    vec::Vec,
-};
-
-use crate::{
-    hw::ops::{ModuleOp, OutputOp},
-    seq::types::{ClockType, MemoryType, ResetType},
-    sv::ops::{
-        AlwaysCombOp, AlwaysFfNoResetOp, AlwaysFfOp, AssignOp, BinaryExprOp, ConcatExprOp,
-        ConstantExprOp, IndexExprOp, InstanceOp, LogicDeclOp, MemDeclOp, MuxExprOp, RegDeclOp,
-        SliceExprOp, UnaryExprOp, WireDeclOp,
-    },
-};
-use sv_parser::{RefNode, SyntaxTree, parse_sv_str, unwrap_node};
+use crate::*;
 
 /// Port definition parsed from a module header.
 #[derive(Debug, Clone)]
@@ -45,35 +9,6 @@ pub struct ParsedPort {
     pub bit_width: u32,
     pub is_clock: bool,
     pub is_reset: bool,
-}
-
-/// Helper to construct integer attributes with specified bit width.
-pub fn int_attr(ctx: &mut Context, width: u32, val: u64) -> IntegerAttr {
-    let ty = IntegerType::get(ctx, width, Signedness::Signless);
-    IntegerAttr::new(ty, APInt::from_u64(val, bw(width as usize)))
-}
-
-/// Parses numeric literals (sized base and unsized decimal) into `(value, width)`.
-pub fn parse_number_literal(s: &str) -> (u64, u32) {
-    if let Some((width_part, val_part)) = s.split_once('\'') {
-        let width: u32 = width_part.parse().unwrap_or(32);
-        let val_str =
-            val_part.trim_start_matches(['b', 'B', 'd', 'D', 'h', 'H', 's', 'S', 'o', 'O']);
-        let radix = if val_part.starts_with(['h', 'H']) || val_part.contains(['h', 'H']) {
-            16
-        } else if val_part.starts_with(['b', 'B']) || val_part.contains(['b', 'B']) {
-            2
-        } else if val_part.starts_with(['o', 'O']) || val_part.contains(['o', 'O']) {
-            8
-        } else {
-            10
-        };
-        let value = u64::from_str_radix(&val_str.replace('_', ""), radix).unwrap_or(0);
-        (value, width)
-    } else {
-        let value: u64 = s.replace('_', "").parse().unwrap_or(0);
-        (value, 32)
-    }
 }
 
 /// Lowers an `sv-parser` Concrete Syntax Tree (`SyntaxTree`) into Pliron hardware IR.
@@ -1053,14 +988,4 @@ impl<'a> SvModuleLowerer<'a> {
     fn stub_unsupported_expression(&self, expr_name: &str, loc: Location) -> Result<Value> {
         verify_err!(loc, "unsupported SystemVerilog expression: {}", expr_name)
     }
-}
-
-/// Convenience entry point to parse a SystemVerilog source string into a Pliron `ModuleOp`.
-pub fn parse_sv_module(ctx: &mut Context, source: &str) -> Result<ModuleOp> {
-    let defines = std::collections::HashMap::new();
-    let (tree, _defines) = parse_sv_str(source, "", &defines, &[] as &[&str], false, false)
-        .map_err(|e| verify_error!(Location::Unknown, "sv-parser syntax error: {:?}", e))?;
-
-    let mut lowerer = SvModuleLowerer::new(ctx, source, &tree);
-    lowerer.lower_module()
 }
