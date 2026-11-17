@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = "*"
+clap = { version = "4.5.58", features = ["derive"] }
+num_cpus = "1.16"
+rayon = "1.10"
 pliron-circt = { path = "../" }
 pliron.workspace =   true
 thiserror.workspace = true
@@ -12,3 +14,4 @@ log.workspace = true
 rustc-hash.workspace = true
 awint.workspace = true
 sv-parser =  "0.13.5"
+memmap2 = "0.9.12"

@@ -1,12 +1,13 @@
 //! SystemVerilog parser targeting the `sv`, `hw`, and `seq` dialects.
 //!
 //! Parses synthesizable SystemVerilog module definitions into verified Pliron hardware IR
-//! using the IEEE 1800-2017 compliant `sv-parser` library.
-//!
-//! The parser is largely as defined in [`sv-parser`](https://github.com/KwachOjunga/sv-parser.git).
+//! using the IEEE 1800-2017 compliant `sv-parser` library and a mold-style parallel pipeline.
 
-#![allow(unused)]
-mod core;
+pub mod core;
+pub mod driver;
+pub mod passes;
+pub mod plan;
+pub mod syntax;
 pub mod utils;
 
 // external dependencies
@@ -34,7 +35,13 @@ use std::{
 use sv_parser::{RefNode, SyntaxTree, parse_sv_str, unwrap_node};
 
 // self-defined dependencies
-use core::*;
+pub use core::*;
+pub use driver::*;
+pub use passes::*;
+pub use plan::*;
+pub use syntax::*;
+pub use utils::*;
+
 use pliron_circt::{
     hw::{ModuleOp, OutputOp},
     seq::{ClockType, MemoryType, ResetType},
@@ -44,9 +51,8 @@ use pliron_circt::{
         SliceExprOp, UnaryExprOp, WireDeclOp,
     },
 };
-use utils::*;
 
-/// Convenience entry point to parse a SystemVerilog source string into a Pliron `ModuleOp`.
+/// Convenience entry point to parse a SystemVerilog source string into a Pliron hw `ModuleOp`.
 pub fn parse_sv_module(ctx: &mut Context, source: &str) -> Result<ModuleOp> {
     let defines = std::collections::HashMap::new();
     let (tree, _defines) = parse_sv_str(source, "", &defines, &[] as &[&str], false, false)
